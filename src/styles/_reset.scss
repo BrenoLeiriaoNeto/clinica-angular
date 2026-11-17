@@ -11,7 +11,7 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: var(--p-font-family, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+  font-family: var(--p-font-family, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif), serif;
   font-size: 14px;
   background-color: $surface-ground;
   color: $text-color;
