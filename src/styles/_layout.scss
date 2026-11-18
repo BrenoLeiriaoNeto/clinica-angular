@@ -1,0 +1,97 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.page-container {
+  width: 100%;
+  max-width: $container-max-width;
+  margin: 0 auto;
+  padding: $space-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $space-lg;
+
+  @include respond-down(md) {
+    padding: $space-md;
+    gap: $space-md;
+  }
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-md;
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  &__subtitle {
+    font-size: 0.875rem;
+    color: $text-muted;
+    margin-top: $space-xs;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $space-sm;
+  }
+}
+
+.surface-card {
+  background: $surface-card;
+  border: 1px solid $surface-border;
+  border-radius: $radius-lg;
+  padding: $space-lg;
+
+  @include respond-down(md) {
+    padding: $space-sm;
+  }
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $space-md;
+}
+
+.grid-12 {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: $space-md;
+
+  @include respond-down(md) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@each $span in (2, 3, 4, 5, 6, 8, 9, 12) {
+  .col-#{$span} {
+    grid-column: span $span;
+
+    @include respond-down(md) {
+      grid-column: span 1;
+    }
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: $text-color;
+  }
+
+  .field-error {
+    font-size: 0.78rem;
+    color: $triage-emergency;
+  }
+}
