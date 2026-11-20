@@ -235,7 +235,7 @@ DROP POLICY IF EXISTS "perfis_gestao_recepcao" ON public.perfis;
 CREATE POLICY "perfis_gestao_recepcao" ON public.perfis
   FOR ALL TO authenticated
   USING (public.current_app_role() = 'RECEPCIONISTA' OR auth.uid() = id)
-  WITH CHECK (public.current_app_role() = 'RECEPCIONISTA' OR auth.uid() = id);
+  WITH CHECK (public.current_app_role() = 'RECEPCIONISTA' OR auth.uid() = id AND role::text = public.current_app_role());
 
 -- Políticas: MEDICAMENTOS
 DROP POLICY IF EXISTS "medicamentos_leitura_geral" ON public.medicamentos;
@@ -311,7 +311,15 @@ CREATE POLICY "receituarios_acesso" ON public.receituarios
 DROP POLICY IF EXISTS "receituario_itens_acesso" ON public.receituario_itens;
 CREATE POLICY "receituario_itens_acesso" ON public.receituario_itens
   FOR ALL TO authenticated
-  USING (TRUE)
+  USING (
+       public.current_app_role() = 'MEDICO'
+       OR EXISTS (
+       SELECT 1
+       FROM public.receituarios r
+       WHERE r.id = receituario_id
+       AND r.paciente_id = auth.uid()
+       )
+  )
   WITH CHECK (public.current_app_role() = 'MEDICO');
 
 -- ============================================================================

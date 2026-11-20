@@ -1,17 +1,13 @@
-import { SupabaseAuthResponse, UserProfile, UserRole } from '../models/auth.model';
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { StoredSession, SupabaseAuthResponse, UserProfile, UserRole } from '../models/auth.model';
+import { computed, inject, Service, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 const STORAGE_KEY = 'medicore_sessions';
 
-interface StoredSession {
-  accessToken: string;
-  user: UserProfile;
-}
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class AuthService {
   private readonly http = inject(HttpClient);
 
@@ -42,16 +38,20 @@ export class AuthService {
 
     return this.http.post<SupabaseAuthResponse>(url, {email, password}).pipe(
       map((res) => {
+        const meta = res.user.user_metadata;
         const profile: UserProfile = {
           id: res.user.id,
           email: res.user.email,
-          fullName: res.user.user_metadata.fullName ?? res.user.email,
-          role: res.user.user_metadata.role ?? 'PACIENTE',
-          document: res.user.user_metadata.document
+          fullName: meta.full_name
+            ?? meta.fullName
+            ?? res.user.email,
+          role: meta.role ?? 'PACIENTE',
+          document: meta.document ?? ''
         };
 
         const session: StoredSession = {
           accessToken: res.access_token,
+          expiresAt: Date.now() + res.expires_in * 1000,
           user: profile
         };
 
@@ -78,7 +78,17 @@ export class AuthService {
     if (!raw) return null;
 
     try {
-      return JSON.parse(raw) as StoredSession;
+      const parsed = JSON.parse(raw) as StoredSession;
+
+      if (!parsed.accessToken
+        || !parsed.user
+        || parsed.expiresAt <= Date.now()) {
+
+        sessionStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+
+      return parsed;
     } catch {
       sessionStorage.removeItem(STORAGE_KEY);
       return null;

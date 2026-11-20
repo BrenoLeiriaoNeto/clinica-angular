@@ -92,8 +92,8 @@
 
   &__footer {
     font-size: 0.8rem;
-    color: #94a3b8;
-    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    color: #e2e8f0;
+    border-top: 1px solid rgba(226, 232, 240, 0.25);
     padding-top: $space-md;
   }
 }
@@ -155,6 +155,11 @@
   &:hover:not(:disabled) {
     border-color: $primary-color;
     color: $primary-color;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
   }
 
   &:disabled {

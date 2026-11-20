@@ -8,6 +8,12 @@ export interface UserProfile {
   document?: string;
 }
 
+export interface StoredSession {
+  accessToken: string;
+  expiresAt: number;
+  user: UserProfile;
+}
+
 export interface SupabaseAuthResponse {
   access_token: string;
   refresh_token: string;
@@ -18,6 +24,7 @@ export interface SupabaseAuthResponse {
     email: string;
     user_metadata: {
       fullName?: string;
+      full_name?: string;
       role?: UserRole;
       document?: string;
     }

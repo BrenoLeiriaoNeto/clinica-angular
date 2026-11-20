@@ -24,7 +24,10 @@ export const supabaseInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(clonedReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !req.url.includes('/auth/v1/token')) {
+      if (error.status === 401
+        && !req.url.includes('/auth/v1/token')
+        && authService.isAuthenticated()
+      ) {
         authService.logout();
         router.navigate(['/login']);
       }

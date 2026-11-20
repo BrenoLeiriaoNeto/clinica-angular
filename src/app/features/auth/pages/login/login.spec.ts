@@ -1,15 +1,20 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { appConfig } from '../../../../app.config';
-import { throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { Login } from './login';
+import { UserProfile } from '../../../../core/models/auth.model';
 
 describe('Login', () => {
   let component: Login;
   let fixture: ComponentFixture<Login>;
+  let router: Router;
+
   const authServiceMock = {
-    login: vi.fn(() => throwError(() => new Error('Invalid credentials'))),
-    homeRouteByRole: vi.fn(() => '/dashboard'),
+    login: vi.fn((_email: string, _password: string): Observable<UserProfile> =>
+      throwError(() => new Error('Invalid credentials'))),
+    homeRouteByRole: vi.fn((): string => '/dashboard'),
   };
 
   beforeEach(async () => {
@@ -17,6 +22,9 @@ describe('Login', () => {
       imports: [Login],
       providers: [...appConfig.providers, { provide: AuthService, useValue: authServiceMock }],
     }).compileComponents();
+
+    router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(Login);
     component = fixture.componentInstance;
@@ -87,4 +95,30 @@ describe('Login', () => {
     expect(alert.getAttribute('aria-live')).toBe('assertive');
     expect(alert.textContent).toContain('Credenciais inválidas ou falha de conexão com o servidor');
   });
+
+  it('fills credentials from demo chip and navigates to role home route on successful login', async () => {
+    authServiceMock.login.mockReturnValueOnce(
+      of({
+        id: '22222222-2222-2222-2222-222222222222',
+        email: 'medico@medicore.com',
+        fullName: 'Dr. Henrique Vasconcelos',
+        role: 'MEDICO',
+      }),
+    );
+
+    const demoChips = fixture.nativeElement.querySelectorAll(
+      '.demo-chip',
+    ) as NodeListOf<HTMLButtonElement>;
+    demoChips[1]?.click(); // Médico
+    fixture.detectChanges();
+
+    const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(authServiceMock.login).toHaveBeenCalledWith('medico@medicore.com', 'Clinica@2026');
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+  });
+
 });

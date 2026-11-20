@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { UserRole } from '../models/auth.model';
 
-export const authGuards: CanActivateFn = () => {
+export const authGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -23,4 +23,15 @@ export const roleGuard: CanActivateFn = (route) => {
   if (allowedRoles.length === 0 || authService.hasAnyRole(allowedRoles)) return true;
 
   return router.createUrlTree([authService.homeRouteByRole()]);
+}
+
+export const guestGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated()) {
+    return router.createUrlTree([authService.homeRouteByRole()]);
+  }
+
+  return true;
 }
