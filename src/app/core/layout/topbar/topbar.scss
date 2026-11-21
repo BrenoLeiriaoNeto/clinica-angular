@@ -1,0 +1,57 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.topbar {
+  height: 60px;
+  padding: 0 $space-lg;
+  background: var(--app-surface-card, $surface-card);
+  border-bottom: 1px solid var(--app-surface-border, $surface-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-md;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  @include respond-down('sm') {
+    padding: 0 $space-md;
+  }
+
+  &__left,
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: $space-sm;
+  }
+
+  :host ::ng-deep &__menu-btn {
+    display: none;
+
+    @include respond-down('md') {
+      display: inline-flex;
+    }
+  }
+
+  &__unit {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-xs;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--app-text-color, $text-color);
+
+    i {
+      color: var(--app-primary-color, $primary-color);
+    }
+  }
+
+  &__email {
+    font-size: 0.84rem;
+    color: var(--app-text-muted, $text-muted);
+
+    @include respond-down('sm') {
+      display: none;
+    }
+  }
+}

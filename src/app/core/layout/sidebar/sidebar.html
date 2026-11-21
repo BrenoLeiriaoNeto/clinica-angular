@@ -1,0 +1,63 @@
+<aside
+  id="app-sidebar"
+  class="sidebar"
+  [class.sidebar--open]="mobileOpen()"
+  aria-label="Menu lateral do sistema"
+>
+  <div class="sidebar__header">
+    <a [routerLink]="homeRoute()" (click)="onNavigate()" class="sidebar__brand">
+      <i class="pi pi-heart" aria-hidden="true"></i>
+      <span>MediCore ERP</span>
+    </a>
+
+    <p-button
+      icon="pi pi-times"
+      [rounded]="true"
+      [text]="true"
+      severity="secondary"
+      ariaLabel="Fechar menu de navegação"
+      styleClass="sidebar__close-btn"
+      (onClick)="closeMobile.emit()"
+    />
+  </div>
+
+  @if (currentUser(); as user) {
+    <div class="sidebar__profile" aria-label="Perfil autenticado">
+      <p-tag [value]="roleLabel()" severity="info" class="sidebar__role-tag" />
+      <strong class="sidebar__user-name">{{ user.fullName }}</strong>
+      @if (user.document) {
+        <span class="sidebar__user-doc">{{ user.document }}</span>
+      }
+    </div>
+  }
+
+  <nav class="sidebar__nav" aria-label="Navegação principal">
+    <ul class="sidebar__list">
+      @for (item of visibleNavItems(); track item.route) {
+        <li>
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="sidebar__link--active"
+            #rla="routerLinkActive"
+            [attr.aria-current]="rla.isActive ? 'page' : null"
+            class="sidebar__link"
+          (click)="onNavigate()">
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <div class="sidebar__footer">
+    <p-button
+      label="Sair"
+      icon="pi pi-sign-out"
+      severity="danger"
+      [outlined]="true"
+      styleClass="w-full"
+      (onClick)="onLogout()"
+    />
+  </div>
+</aside>
