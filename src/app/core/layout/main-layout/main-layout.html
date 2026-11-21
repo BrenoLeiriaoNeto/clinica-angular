@@ -1,0 +1,17 @@
+<a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
+
+<div class="app-shell">
+  <app-sidebar [mobileOpen]="isMobileSidebarOpen()" (closeMobile)="closeMobileSidebar()"/>
+
+  @if (isMobileSidebarOpen()) {
+    <div class="app-shell__backdrop" aria-hidden="true" (click)="closeMobileSidebar()"></div>
+  }
+
+  <div class="app-shell __body">
+    <app-topbar [mobileMenuOpen]="isMobileSidebarOpen()" (toggleMobileMenu)="toggleMobileSidebar()" />
+
+    <main id="main-content" class="app-shell__content" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+</div>

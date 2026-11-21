@@ -1,0 +1,33 @@
+<header class="topbar">
+  <div class="topbar__left">
+    <p-button
+      icon="pi pi-bars"
+      [text]="true"
+      severity="secondary"
+      ariaLabel="Abrir ou fechar menu de navegação"
+      styleClass="topbar__menu-btn"
+      (onClick)="toggleMobileMenu.emit()"
+    />
+
+    <span class="topbar__unit">
+      <i class="pi pi-building" aria-hidden="true"></i>
+      Unidade Clínica Central
+    </span>
+  </div>
+
+  <div class="topbar__right">
+    <p-button
+      [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+      [text]="true"
+      [rounded]="true"
+      severity="secondary"
+      [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
+      (onClick)="toggleTheme()"
+    />
+
+    @if (currentUser(); as user) {
+      <span class="topbar__email">{{ user.email }}</span>
+      <p-avatar [label]="userInitial()" shape="circle" aria-hidden="true" />
+    }
+  </div>
+</header>
