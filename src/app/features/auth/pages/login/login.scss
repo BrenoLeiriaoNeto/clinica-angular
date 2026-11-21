@@ -2,13 +2,22 @@
 @use 'mixins' as *;
 
 .login-page {
+  position: relative;
   min-height: 100vh;
   padding: $space-lg;
-  background-color: $surface-ground;
+  background-color: var(--app-surface-ground, $surface-ground);
+  color: var(--app-text-color, $text-color);
 
   @include respond-down('sm') {
     padding: $space-md;
   }
+}
+
+.login-theme-toggle {
+  position: absolute;
+  top: $space-md;
+  right: $space-md;
+  z-index: 10;
 }
 
 .login-card {
@@ -16,13 +25,13 @@
   max-width: 960px;
   display: grid;
   grid-template-columns: 1.05fr 1fr;
-  background: $surface-card;
-  border: 1px solid $surface-border;
+  background: var(--app-surface-card, $surface-card);
+  border: 1px solid var(--app-surface-border, $surface-border);
   border-radius: $radius-lg;
   overflow: hidden;
   box-shadow:
-    0 20px 25px -5px rgba(15, 23, 42, 0.08),
-    0 8px 10px -6px rgba(15, 23, 42, 0.04);
+    0 20px 25px -5px rgba(15, 23, 42, 0.14),
+    0 8px 10px -6px rgba(15, 23, 42, 0.08);
 
   @include respond-down('md') {
     grid-template-columns: 1fr;
@@ -114,6 +123,11 @@
     h2 {
       font-size: 1.4rem;
       margin-bottom: $space-xs;
+      color: var(--app-text-color, $text-color);
+    }
+
+    p {
+      color: var(--app-text-muted, $text-muted);
     }
   }
 }
@@ -121,13 +135,13 @@
 .demo-box {
   margin-top: $space-lg;
   padding-top: $space-md;
-  border-top: 1px dashed $surface-border;
+  border-top: 1px dashed var(--app-surface-border, $surface-border);
 
   &__title {
     display: block;
     font-size: 0.78rem;
     font-weight: 600;
-    color: $text-muted;
+    color: var(--app-text-muted, $text-muted);
     margin-bottom: $space-sm;
   }
 
@@ -143,22 +157,22 @@
   align-items: center;
   gap: $space-xs;
   padding: $space-sm;
-  border: 1px solid $surface-border;
+  border: 1px solid var(--app-surface-border, $surface-border);
   border-radius: $radius-md;
-  background: $surface-ground;
-  color: $text-color;
+  background: var(--app-surface-subtle, $surface-ground);
+  color: var(--app-text-color, $text-color);
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
-    border-color: $primary-color;
-    color: $primary-color;
+    border-color: var(--app-primary-color, $primary-color);
+    color: var(--app-primary-color, $primary-color);
   }
 
   &:focus-visible {
-    outline: 2px solid $primary-color;
+    outline: 2px solid var(--app-primary-color, $primary-color);
     outline-offset: 2px;
   }
 

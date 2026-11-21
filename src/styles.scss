@@ -4,3 +4,23 @@
 @use 'styles/reset';
 @use 'styles/layout';
 @use 'styles/utilities';
+
+:root {
+  --app-surface-ground: #f1f5f9;
+  --app-surface-card: #ffffff;
+  --app-surface-subtle: #f8fafc;
+  --app-surface-border: #cbd5e1;
+  --app-text-color: #0f172a;
+  --app-text-muted: #475569;
+  --app-primary-color: #0284c7;
+}
+
+:root.app-dark {
+  --app-surface-ground: #090d16;
+  --app-surface-card: #111827;
+  --app-surface-subtle: #1e293b;
+  --app-surface-border: #334155;
+  --app-text-color: #f8fafc;
+  --app-text-muted: #cbd5e1;
+  --app-primary-color: #38bdf8;
+}

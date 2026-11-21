@@ -4,8 +4,8 @@
 .topbar {
   height: 60px;
   padding: 0 $space-lg;
-  background: var(--p-surface-0, $surface-card);
-  border-bottom: 1px solid var(--p-surface-200, $surface-border);
+  background: var(--app-surface-card, $surface-card);
+  border-bottom: 1px solid var(--app-surface-border, $surface-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -39,16 +39,16 @@
     gap: $space-xs;
     font-size: 0.88rem;
     font-weight: 600;
-    color: var(--p-text-color, $text-color);
+    color: var(--app-text-color, $text-color);
 
     i {
-      color: var(--p-primary-color, $primary-color);
+      color: var(--app-primary-color, $primary-color);
     }
   }
 
   &__email {
     font-size: 0.84rem;
-    color: var(--p-text-muted-color, $text-muted);
+    color: var(--app-text-muted, $text-muted);
 
     @include respond-down('sm') {
       display: none;

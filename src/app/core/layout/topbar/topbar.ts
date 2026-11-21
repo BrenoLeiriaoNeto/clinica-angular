@@ -3,6 +3,7 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { AuthService } from '../../auth/auth.service';
 import { Button } from '@openng/optimus-ui/button';
 import { Avatar } from '@openng/optimus-ui/avatar';
+import { ThemeService } from '../../theme/theme.service';
 
 @Component({
   imports: [Button, Avatar],
@@ -12,15 +13,13 @@ import { Avatar } from '@openng/optimus-ui/avatar';
 })
 export class Topbar {
   private readonly authService = inject(AuthService);
-  private readonly document = inject(DOCUMENT);
+  private readonly themeService = inject(ThemeService);
 
   readonly mobileMenuOpen = input<boolean>(false);
   readonly toggleMobileMenu = output<void>();
 
   protected readonly currentUser = this.authService.currentUser;
-  protected readonly isDarkMode = signal(
-    this.document.documentElement.classList.contains('app-dark'),
-  );
+  protected readonly isDarkMode = this.themeService.isDark;
 
   protected readonly userInitial = computed(() => {
     const name = this.currentUser()?.fullName?.trim();
@@ -28,8 +27,6 @@ export class Topbar {
   });
 
   protected toggleTheme(): void {
-    const nextDark = !this.isDarkMode();
-    this.isDarkMode.set(nextDark);
-    this.document.documentElement.classList.toggle('app-dark', nextDark);
+    this.themeService.toggleTheme();
   }
 }

@@ -8,6 +8,7 @@ import { Message } from '@openng/optimus-ui/message';
 import { InputText } from '@openng/optimus-ui/inputtext';
 import { Password } from '@openng/optimus-ui/password';
 import { Button } from '@openng/optimus-ui/button';
+import { ThemeService } from '../../../../core/theme/theme.service';
 
 interface DemoAccount {
   label: string;
@@ -26,7 +27,9 @@ export class Login {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly themeService = inject(ThemeService);
 
+  protected readonly isDarkMode = this.themeService.isDark;
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly passwordErrorVisible = signal(false);
@@ -107,5 +110,9 @@ export class Login {
         error: () =>
           this.errorMessage.set('Credenciais inválidas ou falha de conexão com o servidor'),
       });
+  }
+
+  protected toggleTheme(): void {
+    this.themeService.toggleTheme();
   }
 }

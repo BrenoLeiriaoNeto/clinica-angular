@@ -1,4 +1,15 @@
 <main class="login-page flex-center">
+  <div class="login-theme-toggle">
+    <p-button
+      [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+      [rounded]="true"
+      severity="secondary"
+      [outlined]="true"
+      [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
+      (onClick)="toggleTheme()"
+    />
+  </div>
+
   <div class="login-card">
     <section class="login-hero">
       <div class="login-hero__brand">

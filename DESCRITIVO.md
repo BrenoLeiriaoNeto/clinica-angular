@@ -31,6 +31,8 @@ Segue abaixo uma exemplificação da estrutura do projeto e os seus diretórios:
 ## ⚙️ Outras Decisões Técnicas
 * * *
 
+- **Autenticação e Autorização:** Em ambientes corporativos de produção, o fluxo Resource Owner Password Credentials (`grant_type=password`) foi descontinuado pela especificação OAuth 2.1 em favor do Authorization Code Flow com PKCE + OIDC, mitigando a exposição direta de credenciais à aplicação cliente. Neste projeto, optei deliberadamente pela autenticação direta via Supabase Auth (`grant_type=password`) combinada com JWT em `sessionStorage`, expiração validada no cliente e políticas de Row Level Security (RLS) no PostgreSQL, garantindo reprodutibilidade imediata e validação determinística das quatro roles sem dependência de provedores OIDC externos.
+
 ## 🤖️ Uso de IA
 * * *
 
