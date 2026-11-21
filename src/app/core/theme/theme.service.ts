@@ -1,5 +1,5 @@
-import { effect, inject, Service, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { inject, Service, signal } from '@angular/core';
 
 const THEME_STORAGE_KEY = 'medicore_theme';
 
@@ -11,22 +11,25 @@ export class ThemeService {
   readonly isDark = this._isDark.asReadonly();
 
   constructor() {
-    effect(() => {
-      const dark = this._isDark();
-      this.document.documentElement.classList.toggle('app-dark', dark);
-
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, dark ? 'dark' : 'light');
-      } catch {}
-    });
+    this.applyTheme(this._isDark());
   }
 
   toggleTheme(): void {
-    this._isDark.update((dark) => !dark);
+    this.setDarkMode(!this._isDark());
   }
 
   setDarkMode(dark: boolean): void {
     this._isDark.set(dark);
+    this.applyTheme(dark);
+  }
+
+  private applyTheme(dark: boolean): void {
+    this.document.documentElement.classList.toggle('app-dark', dark);
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, dark ? 'dark' : 'light');
+    } catch {
+    }
   }
 
   private resolveInitialTheme(): boolean {
@@ -34,7 +37,8 @@ export class ThemeService {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
       if (stored === 'dark') return true;
       if (stored === 'light') return false;
-    } catch {}
+    } catch {
+    }
 
     return (
       typeof window !== 'undefined' &&
@@ -42,5 +46,4 @@ export class ThemeService {
       window.matchMedia('(prefers-color-scheme: dark)').matches
     );
   }
-
 }

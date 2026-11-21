@@ -34,10 +34,10 @@
 
   &__content {
     flex: 1;
-    padding: $space-lg;
+    padding: $space-sm $space-lg $space-lg;
 
     @include respond-down('sm') {
-      padding: $space-md;
+      padding: $space-sm $space-md $space-md;
     }
 
     &:focus {
