@@ -1,5 +1,4 @@
-import { DOCUMENT } from '@angular/common';
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { AuthService } from '../../auth/auth.service';
 import { Button } from '@openng/optimus-ui/button';
 import { Avatar } from '@openng/optimus-ui/avatar';
