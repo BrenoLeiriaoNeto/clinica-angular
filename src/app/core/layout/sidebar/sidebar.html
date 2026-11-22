@@ -4,7 +4,7 @@
   [class.sidebar--open]="mobileOpen()"
   aria-label="Menu lateral do sistema"
 >
-  <div class="sidebar__header">
+  <div class="sidebar__mobile-header">
     <a [routerLink]="homeRoute()" (click)="onNavigate()" class="sidebar__brand">
       <i class="pi pi-heart" aria-hidden="true"></i>
       <span>MediCore ERP</span>
@@ -41,7 +41,8 @@
             #rla="routerLinkActive"
             [attr.aria-current]="rla.isActive ? 'page' : null"
             class="sidebar__link"
-          (click)="onNavigate()">
+            (click)="onNavigate()"
+          >
             <i [class]="item.icon" aria-hidden="true"></i>
             <span>{{ item.label }}</span>
           </a>
@@ -52,7 +53,7 @@
 
   <div class="sidebar__footer">
     <p-button
-      label="Sair"
+      label="Sair do Sistema"
       icon="pi pi-sign-out"
       severity="danger"
       [outlined]="true"

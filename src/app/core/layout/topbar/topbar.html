@@ -1,33 +1,66 @@
 <header class="topbar">
   <div class="topbar__left">
-    <p-button
-      icon="pi pi-bars"
-      [text]="true"
-      severity="secondary"
-      ariaLabel="Abrir ou fechar menu de navegação"
-      styleClass="topbar__menu-btn"
-      (onClick)="toggleMobileMenu.emit()"
-    />
+    <div class="topbar__pill topbar__pill--breadcrumb">
+      <p-button
+        icon="pi pi-bars"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Abrir ou fechar menu de navegação"
+        styleClass="topbar__menu-btn"
+        (onClick)="toggleMobileMenu.emit()"
+      />
 
-    <span class="topbar__unit">
-      <i class="pi pi-building" aria-hidden="true"></i>
-      Unidade Clínica Central
-    </span>
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumb-list">
+          @for (crumb of breadcrumbs(); track crumb.route + crumb.label) {
+            <li class="breadcrumb-list__item">
+              @if (!crumb.isLast) {
+                <a [routerLink]="crumb.route" class="breadcrumb-list__link">
+                  {{ crumb.label }}
+                </a>
+                <i class="pi pi-angle-right breadcrumb-list__sep" aria-hidden="true"></i>
+              } @else {
+                <span class="breadcrumb-list__current" aria-current="page">
+                  {{ crumb.label }}
+                </span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="topbar__center">
+    <div class="topbar__pill topbar__pill--brand">
+      <span class="topbar__brand">
+        <i class="pi pi-heart" aria-hidden="true"></i>
+        <strong>MediCore ERP</strong>
+      </span>
+      <span class="topbar__divider" aria-hidden="true"></span>
+      <span class="topbar__unit">
+        <i class="pi pi-building" aria-hidden="true"></i>
+        Unidade Clínica Central
+      </span>
+    </div>
   </div>
 
   <div class="topbar__right">
-    <p-button
-      [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
-      [text]="true"
-      [rounded]="true"
-      severity="secondary"
-      [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
-      (onClick)="toggleTheme()"
-    />
+    <div class="topbar__pill topbar__pill--actions">
+      <p-button
+        [icon]="isDarkMode() ? 'pi pi-sun' : 'pi pi-moon'"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
+        (onClick)="toggleTheme()"
+      />
 
-    @if (currentUser(); as user) {
-      <span class="topbar__email">{{ user.email }}</span>
-      <p-avatar [label]="userInitial()" shape="circle" aria-hidden="true" />
-    }
+      @if (currentUser(); as user) {
+        <span class="topbar__email">{{ user.email }}</span>
+        <p-avatar [label]="userInitial()" shape="circle" aria-hidden="true" />
+      }
+    </div>
   </div>
 </header>
