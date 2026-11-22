@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, ElementRef, inject, input, output } from '@angular/core';
 import { AuthService } from '../../auth/auth.service';
 import { Button } from '@openng/optimus-ui/button';
 import { Avatar } from '@openng/optimus-ui/avatar';
@@ -16,6 +16,7 @@ export class Topbar {
   private readonly authService = inject(AuthService);
   private readonly themeService = inject(ThemeService);
   private readonly breadcrumbService = inject(BreadcrumbService);
+  private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly mobileMenuOpen = input<boolean>(false);
   readonly toggleMobileMenu = output<void>();
@@ -31,5 +32,11 @@ export class Topbar {
 
   protected toggleTheme(): void {
     this.themeService.toggleTheme();
+  }
+
+  focusMenuTrigger(): void {
+    this.hostRef.nativeElement
+      .querySelector<HTMLButtonElement>('.button.topbar__menu-btn, .topbar_menu-btn button')
+      ?.focus();
   }
 }

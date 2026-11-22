@@ -107,6 +107,12 @@
   }
 }
 
+.login-form-title {
+  font-size: 1.4rem;
+  margin-bottom: $space-xs;
+  color: var(--app-text-color, $text-color);
+}
+
 .login-form-area {
   padding: $space-xl;
   display: flex;

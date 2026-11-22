@@ -1,11 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { AuthService } from '../../../core/auth/auth.service';
-import { UserProfile } from '../../../core/models/auth.model';
 import { Medicamento } from '../models/estoque.model';
 import { AuditoriaEstoqueService } from './auditoria-estoque.service';
 import { MedicamentosService } from './medicamentos.service';
@@ -13,17 +9,6 @@ import { MedicamentosService } from './medicamentos.service';
 describe('MedicamentosService', () => {
   let service: MedicamentosService;
   let httpMock: HttpTestingController;
-
-  const auditoriaMock = {
-    registrarLog: vi.fn(() => of({} as never)),
-  };
-
-  const mockGerente: UserProfile = {
-    id: '33333333-3333-3333-3333-333333333333',
-    email: 'estoque@medicore.com',
-    fullName: 'Roberto Nogueira',
-    role: 'GERENTE_ESTOQUE',
-  };
 
   const mockAmoxicilina: Medicamento = {
     id: 'aaaaaaaa-0001-0001-0001-000000000001',
@@ -40,18 +25,8 @@ describe('MedicamentosService', () => {
   };
 
   beforeEach(() => {
-    auditoriaMock.registrarLog.mockClear();
-
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        {
-          provide: AuthService,
-          useValue: { currentUser: signal<UserProfile | null>(mockGerente).asReadonly() },
-        },
-        { provide: AuditoriaEstoqueService, useValue: auditoriaMock },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting(), AuditoriaEstoqueService],
     });
 
     service = TestBed.inject(MedicamentosService);
@@ -62,27 +37,34 @@ describe('MedicamentosService', () => {
     httpMock.verify();
   });
 
-  it('prevents outbound stock movement exceeding current balance', () => {
-    let errorMsg = '';
+  it('rejects non-integer and excessive outbound stock quantities before calling RPC', () => {
+    let fractionalError = '';
+    service
+      .movimentarSaldo({
+        medicamento: mockAmoxicilina,
+        tipo: 'ENTRADA',
+        quantidade: 1.5,
+        observacao: 'Fracionado inválido',
+      })
+      .subscribe({ error: (err: Error) => (fractionalError = err.message) });
 
+    expect(fractionalError).toContain('número inteiro');
+
+    let insufficientError = '';
     service
       .movimentarSaldo({
         medicamento: mockAmoxicilina,
         tipo: 'SAIDA',
         quantidade: 75,
-        observacao: 'Saída inválida',
+        observacao: 'Saída acima do saldo',
       })
-      .subscribe({
-        error: (err: Error) => {
-          errorMsg = err.message;
-        },
-      });
+      .subscribe({ error: (err: Error) => (insufficientError = err.message) });
 
-    expect(errorMsg).toContain('Saldo insuficiente');
-    httpMock.expectNone(`${environment.supabaseUrl}/rest/v1/medicamentos`);
+    expect(insufficientError).toContain('Saldo insuficiente');
+    httpMock.expectNone(`${environment.supabaseUrl}/rest/v1/rpc/registrar_movimentacao_estoque`);
   });
 
-  it('updates medication balance and delegates audit log to AuditoriaEstoqueService', () => {
+  it('calls atomic registrar_movimentacao_estoque RPC and updates signal state', () => {
     service.loadMedicamentos().subscribe();
     httpMock
       .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
@@ -97,22 +79,25 @@ describe('MedicamentosService', () => {
       })
       .subscribe();
 
-    const patchReq = httpMock.expectOne(
-      (r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos` && r.method === 'PATCH',
+    const rpcReq = httpMock.expectOne(
+      `${environment.supabaseUrl}/rest/v1/rpc/registrar_movimentacao_estoque`,
     );
-    expect(patchReq.request.body).toEqual({ quantidade_atual: 40 });
-    patchReq.flush([{ ...mockAmoxicilina, quantidade_atual: 40, status: 'REPOSICAO' }]);
-
-    expect(auditoriaMock.registrarLog).toHaveBeenCalledWith({
-      medicamento_id: mockAmoxicilina.id,
-      tipo: 'SAIDA',
-      quantidade_anterior: 60,
-      quantidade_movimentada: 20,
-      quantidade_posterior: 40,
-      gerente_responsavel_id: mockGerente.id,
-      medico_solicitante_id: undefined,
-      observacao: 'Dispensação ambulatorial',
+    expect(rpcReq.request.method).toBe('POST');
+    expect(rpcReq.request.body).toEqual({
+      p_medicamento_id: mockAmoxicilina.id,
+      p_tipo: 'SAIDA',
+      p_quantidade: 20,
+      p_observacao: 'Dispensação ambulatorial',
+      p_medico_solicitante_id: null,
     });
+
+    rpcReq.flush({
+      ...mockAmoxicilina,
+      quantidade_atual: 40,
+      status: 'REPOSICAO',
+    });
+
+    expect(service.medicamentos()[0]?.quantidade_atual).toBe(40);
     expect(service.medicamentos()[0]?.status).toBe('REPOSICAO');
   });
 });

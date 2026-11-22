@@ -12,10 +12,22 @@ describe('PageHeader', () => {
 
     fixture = TestBed.createComponent(PageHeader);
     component = fixture.componentInstance;
-    await fixture.whenStable();
+    fixture.componentRef.setInput('title', 'Controle de Estoque');
+    fixture.detectChanges();
   });
 
-  it('should create', () => {
+  it('should create and render the required title', () => {
     expect(component).toBeTruthy();
+
+    const heading = fixture.nativeElement.querySelector('h1') as HTMLElement;
+    expect(heading.textContent?.trim()).toBe('Controle de Estoque');
+  });
+
+  it('renders subtitle when provided', () => {
+    fixture.componentRef.setInput('subtitle', 'Monitoramento de medicamentos e alertas');
+    fixture.detectChanges();
+
+    const subtitle = fixture.nativeElement.querySelector('.page-header__subtitle') as HTMLElement;
+    expect(subtitle.textContent?.trim()).toBe('Monitoramento de medicamentos e alertas');
   });
 });

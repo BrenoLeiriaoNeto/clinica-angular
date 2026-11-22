@@ -1,5 +1,5 @@
 import { computed, inject, Service, signal } from '@angular/core';
-import { catchError, finalize, Observable, tap, throwError } from 'rxjs';
+import { catchError, EMPTY, finalize, Observable, tap, throwError } from 'rxjs';
 import { BaseApiService } from '../../../core/http/base-api.service';
 import {
   Medicamento,
@@ -61,9 +61,9 @@ export class MedicamentosService {
       !dto.nome.trim() ||
       !dto.principio_ativo.trim() ||
       !dto.unidade_medida.trim() ||
-      !Number.isFinite(dto.quantidade_atual) ||
+      !Number.isInteger(dto.quantidade_atual) ||
       dto.quantidade_atual < 0 ||
-      !Number.isFinite(dto.estoque_minimo) ||
+      !Number.isInteger(dto.estoque_minimo) ||
       dto.estoque_minimo < 0
     ) {
       return throwError(
@@ -102,7 +102,7 @@ export class MedicamentosService {
       !dto.nome.trim() ||
       !dto.principio_ativo.trim() ||
       !dto.unidade_medida.trim() ||
-      !Number.isFinite(dto.estoque_minimo) ||
+      !Number.isInteger(dto.estoque_minimo) ||
       dto.estoque_minimo < 0
     ) {
       return throwError(() => new Error('Dados inválidos para atualização do medicamento.'));
@@ -118,7 +118,7 @@ export class MedicamentosService {
           nome: dto.nome.trim(),
           principio_ativo: dto.principio_ativo.trim(),
           unidade_medida: dto.unidade_medida.trim(),
-          estoque_minimo: Math.trunc(dto.estoque_minimo),
+          estoque_minimo: dto.estoque_minimo,
         },
         { id: `eq.${id}` },
         'Medicamento não encontrado para atualização.',
@@ -156,18 +156,17 @@ export class MedicamentosService {
   }
 
   movimentarSaldo(dto: RegistrarMovimentacaoDto): Observable<Medicamento> {
-    if (!Number.isFinite(dto.quantidade)) {
-      return throwError(() => new Error('Quantidade inválida para movimentação.'));
+    if (!Number.isInteger(dto.quantidade)) {
+      return throwError(() => new Error('A quantidade deve ser um número inteiro.'));
     }
 
-    const qtd = Math.trunc(dto.quantidade);
-    if (dto.tipo !== 'AJUSTE' && qtd <= 0) {
+    if (dto.tipo !== 'AJUSTE' && dto.quantidade <= 0) {
       return throwError(() => new Error('A quantidade deve ser maior que zero.'));
     }
-    if (dto.tipo === 'SAIDA' && qtd > dto.medicamento.quantidade_atual) {
+    if (dto.tipo === 'SAIDA' && dto.quantidade > dto.medicamento.quantidade_atual) {
       return throwError(() => new Error('Saldo insuficiente em estoque para esta saída.'));
     }
-    if (dto.tipo === 'AJUSTE' && qtd < 0) {
+    if (dto.tipo === 'AJUSTE' && dto.quantidade < 0) {
       return throwError(() => new Error('O saldo ajustado não pode ser negativo.'));
     }
 
@@ -178,7 +177,7 @@ export class MedicamentosService {
       .rpc<Medicamento>('registrar_movimentacao_estoque', {
         p_medicamento_id: dto.medicamento.id,
         p_tipo: dto.tipo,
-        p_quantidade: qtd,
+        p_quantidade: dto.quantidade,
         p_observacao: dto.observacao.trim() || null,
         p_medico_solicitante_id: dto.medico_solicitante_id?.trim() || null,
       })
@@ -188,7 +187,10 @@ export class MedicamentosService {
             prev.map((item) => (item.id === updatedMed.id ? updatedMed : item)),
           );
           if (this.auditoriaService.movimentacoes().length > 0) {
-            this.auditoriaService.loadMovimentacoes().subscribe();
+            this.auditoriaService
+              .loadMovimentacoes()
+              .pipe(catchError(() => EMPTY))
+              .subscribe();
           }
         }),
         finalize(() => this._isSubmitting.set(false)),

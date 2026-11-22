@@ -7,7 +7,7 @@
     <div class="app-shell__backdrop" aria-hidden="true" (click)="closeMobileSidebar()"></div>
   }
 
-  <div class="app-shell__body">
+  <div class="app-shell__body" [inert]="isMobileSidebarOpen()">
     <app-topbar [mobileMenuOpen]="isMobileSidebarOpen()" (toggleMobileMenu)="toggleMobileSidebar()" />
 
     <main id="main-content" class="app-shell__content" tabindex="-1">

@@ -1,5 +1,5 @@
 import { computed, inject, Service, signal } from '@angular/core';
-import { catchError, finalize, Observable, switchMap, tap, throwError } from 'rxjs';
+import { catchError, EMPTY, finalize, map, Observable, tap, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { BaseApiService } from '../../../core/http/base-api.service';
 import { PedidoEstoque, PedidoStatus } from '../models/estoque.model';
@@ -57,11 +57,12 @@ export class PedidosEstoqueService {
     }
     if (
       !dto.medicamento_id.trim() ||
-      !Number.isFinite(dto.quantidade_solicitada) ||
+      !Number.isInteger(dto.quantidade_solicitada) ||
       dto.quantidade_solicitada <= 0
     ) {
       return throwError(
-        () => new Error('Selecione um medicamento e informe uma quantidade maior que zero.'),
+        () =>
+          new Error('Selecione um medicamento e informe uma quantidade inteira maior que zero.'),
       );
     }
 
@@ -73,7 +74,7 @@ export class PedidosEstoqueService {
         'pedidos_estoque',
         {
           medicamento_id: dto.medicamento_id.trim(),
-          quantidade_solicitada: Math.trunc(dto.quantidade_solicitada),
+          quantidade_solicitada: dto.quantidade_solicitada,
           status: 'PENDENTE' as const,
           medico_solicitante_id: user.role === 'MEDICO' ? user.id : null,
           gerente_responsavel_id: user.role === 'GERENTE_ESTOQUE' ? user.id : null,
@@ -108,18 +109,27 @@ export class PedidosEstoqueService {
       this._error.set(null);
 
       return this.api.rpc<PedidoEstoque>('receber_pedido_estoque', { p_pedido_id: pedido.id }).pipe(
-        switchMap(() => this.loadPedidos()),
-        tap(() => {
-          this.medicamentosService.loadMedicamentos().subscribe();
+        map(
+          (updatedRow) =>
+            ({
+              ...pedido,
+              ...updatedRow,
+            }) satisfies PedidoEstoque,
+        ),
+        tap((mergedPedido) => {
+          this._pedidos.update((prev) =>
+            prev.map((item) => (item.id === pedido.id ? mergedPedido : item)),
+          );
+          this.medicamentosService
+            .loadMedicamentos()
+            .pipe(catchError(() => EMPTY))
+            .subscribe();
           if (this.auditoriaService.movimentacoes().length > 0) {
-            this.auditoriaService.loadMovimentacoes().subscribe();
+            this.auditoriaService
+              .loadMovimentacoes()
+              .pipe(catchError(() => EMPTY))
+              .subscribe();
           }
-        }),
-        switchMap(() => {
-          const updated = this._pedidos().find((p) => p.id === pedido.id);
-          return updated
-            ? [updated]
-            : throwError(() => new Error('Pedido atualizado não encontrado.'));
         }),
         finalize(() => this._isSubmitting.set(false)),
       );
