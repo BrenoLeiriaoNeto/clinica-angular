@@ -1,6 +1,5 @@
 import { computed, inject, Service, signal } from '@angular/core';
-import { catchError, finalize, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
-import { AuthService } from '../../../core/auth/auth.service';
+import { catchError, finalize, Observable, tap, throwError } from 'rxjs';
 import { BaseApiService } from '../../../core/http/base-api.service';
 import {
   Medicamento,
@@ -15,7 +14,6 @@ import {
 @Service()
 export class MedicamentosService {
   private readonly api = inject(BaseApiService);
-  private readonly authService = inject(AuthService);
   private readonly auditoriaService = inject(AuditoriaEstoqueService);
 
   private readonly _medicamentos = signal<Medicamento[]>([]);
@@ -58,42 +56,38 @@ export class MedicamentosService {
   }
 
   criar(dto: CreateMedicamentoDto): Observable<Medicamento> {
-    const userId = this.authService.currentUser()?.id;
-    if (!userId) {
-      return throwError(() => new Error('Usuário não autenticado.'));
+    if (
+      !dto.codigo_sku.trim() ||
+      !dto.nome.trim() ||
+      !dto.principio_ativo.trim() ||
+      !dto.unidade_medida.trim() ||
+      !Number.isFinite(dto.quantidade_atual) ||
+      dto.quantidade_atual < 0 ||
+      !Number.isFinite(dto.estoque_minimo) ||
+      dto.estoque_minimo < 0
+    ) {
+      return throwError(
+        () => new Error('Preencha todos os campos obrigatórios com valores válidos.'),
+      );
     }
 
     this._isSubmitting.set(true);
     this._error.set(null);
 
-    const payload = {
-      ...dto,
-      codigo_sku: dto.codigo_sku.trim().toUpperCase(),
-      nome: dto.nome.trim(),
-      principio_ativo: dto.principio_ativo.trim(),
-      unidade_medida: dto.unidade_medida.trim(),
-    };
-
     return this.api
-      .postOne<Medicamento>('medicamentos', payload, 'Falha ao cadastrar medicamento.')
+      .postOne<Medicamento>(
+        'medicamentos',
+        {
+          codigo_sku: dto.codigo_sku.trim().toUpperCase(),
+          nome: dto.nome.trim(),
+          principio_ativo: dto.principio_ativo.trim(),
+          unidade_medida: dto.unidade_medida.trim(),
+          quantidade_atual: Math.trunc(dto.quantidade_atual),
+          estoque_minimo: Math.trunc(dto.estoque_minimo),
+        },
+        'Falha ao cadastrar medicamento.',
+      )
       .pipe(
-        switchMap((created) => {
-          if (created.quantidade_atual <= 0) {
-            return of(created);
-          }
-
-          return this.auditoriaService
-            .registrarLog({
-              medicamento_id: created.id,
-              tipo: 'ENTRADA',
-              quantidade_anterior: 0,
-              quantidade_movimentada: created.quantidade_atual,
-              quantidade_posterior: created.quantidade_atual,
-              gerente_responsavel_id: userId,
-              observacao: 'Saldo inicial cadastrado no catálogo',
-            })
-            .pipe(map(() => created));
-        }),
         tap((created) => {
           this._medicamentos.update((prev) =>
             [...prev, created].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -104,6 +98,16 @@ export class MedicamentosService {
   }
 
   atualizar(id: string, dto: UpdateMedicamentoDto): Observable<Medicamento> {
+    if (
+      !dto.nome.trim() ||
+      !dto.principio_ativo.trim() ||
+      !dto.unidade_medida.trim() ||
+      !Number.isFinite(dto.estoque_minimo) ||
+      dto.estoque_minimo < 0
+    ) {
+      return throwError(() => new Error('Dados inválidos para atualização do medicamento.'));
+    }
+
     this._isSubmitting.set(true);
     this._error.set(null);
 
@@ -114,7 +118,7 @@ export class MedicamentosService {
           nome: dto.nome.trim(),
           principio_ativo: dto.principio_ativo.trim(),
           unidade_medida: dto.unidade_medida.trim(),
-          estoque_minimo: dto.estoque_minimo,
+          estoque_minimo: Math.trunc(dto.estoque_minimo),
         },
         { id: `eq.${id}` },
         'Medicamento não encontrado para atualização.',
@@ -152,79 +156,42 @@ export class MedicamentosService {
   }
 
   movimentarSaldo(dto: RegistrarMovimentacaoDto): Observable<Medicamento> {
-    const userId = this.authService.currentUser()?.id;
-    if (!userId) {
-      return throwError(() => new Error('Usuário não autenticado.'));
+    if (!Number.isFinite(dto.quantidade)) {
+      return throwError(() => new Error('Quantidade inválida para movimentação.'));
     }
 
-    const calculo = this.calcularNovoSaldo(dto);
-    if ('error' in calculo) {
-      return throwError(() => new Error(calculo.error));
+    const qtd = Math.trunc(dto.quantidade);
+    if (dto.tipo !== 'AJUSTE' && qtd <= 0) {
+      return throwError(() => new Error('A quantidade deve ser maior que zero.'));
+    }
+    if (dto.tipo === 'SAIDA' && qtd > dto.medicamento.quantidade_atual) {
+      return throwError(() => new Error('Saldo insuficiente em estoque para esta saída.'));
+    }
+    if (dto.tipo === 'AJUSTE' && qtd < 0) {
+      return throwError(() => new Error('O saldo ajustado não pode ser negativo.'));
     }
 
     this._isSubmitting.set(true);
     this._error.set(null);
 
     return this.api
-      .patchOne<Medicamento>(
-        'medicamentos',
-        { quantidade_atual: calculo.posterior },
-        { id: `eq.${dto.medicamento.id}` },
-        'Falha ao atualizar o saldo do medicamento.',
-      )
+      .rpc<Medicamento>('registrar_movimentacao_estoque', {
+        p_medicamento_id: dto.medicamento.id,
+        p_tipo: dto.tipo,
+        p_quantidade: qtd,
+        p_observacao: dto.observacao.trim() || null,
+        p_medico_solicitante_id: dto.medico_solicitante_id?.trim() || null,
+      })
       .pipe(
-        switchMap((updatedMed) =>
-          this.auditoriaService
-            .registrarLog({
-              medicamento_id: dto.medicamento.id,
-              tipo: dto.tipo,
-              quantidade_anterior: calculo.anterior,
-              quantidade_movimentada: calculo.movimentada,
-              quantidade_posterior: calculo.posterior,
-              gerente_responsavel_id: userId,
-              medico_solicitante_id: dto.medico_solicitante_id ?? null,
-              observacao: dto.observacao,
-            })
-            .pipe(map(() => updatedMed)),
-        ),
         tap((updatedMed) => {
           this._medicamentos.update((prev) =>
             prev.map((item) => (item.id === updatedMed.id ? updatedMed : item)),
           );
+          if (this.auditoriaService.movimentacoes().length > 0) {
+            this.auditoriaService.loadMovimentacoes().subscribe();
+          }
         }),
         finalize(() => this._isSubmitting.set(false)),
       );
-  }
-
-  private calcularNovoSaldo(
-    dto: RegistrarMovimentacaoDto,
-  ): { anterior: number; posterior: number; movimentada: number } | { error: string } {
-    const anterior = dto.medicamento.quantidade_atual;
-
-    if (dto.tipo === 'ENTRADA') {
-      if (dto.quantidade <= 0) {
-        return { error: 'A quantidade de entrada deve ser maior que zero.' };
-      }
-      return { anterior, posterior: anterior + dto.quantidade, movimentada: dto.quantidade };
-    }
-
-    if (dto.tipo === 'SAIDA') {
-      if (dto.quantidade <= 0) {
-        return { error: 'A quantidade de saída deve ser maior que zero.' };
-      }
-      if (dto.quantidade > anterior) {
-        return { error: 'Saldo insuficiente em estoque para esta saída.' };
-      }
-      return { anterior, posterior: anterior - dto.quantidade, movimentada: dto.quantidade };
-    }
-
-    if (dto.quantidade < 0) {
-      return { error: 'O saldo ajustado não pode ser negativo.' };
-    }
-    return {
-      anterior,
-      posterior: dto.quantidade,
-      movimentada: Math.abs(dto.quantidade - anterior),
-    };
   }
 }

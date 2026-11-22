@@ -78,17 +78,20 @@ export class AuthService {
     if (!raw) return null;
 
     try {
-      const parsed = JSON.parse(raw) as StoredSession;
+      const parsed = JSON.parse(raw) as Partial<StoredSession>;
 
-      if (!parsed.accessToken
+      if (
+        typeof parsed.accessToken !== 'string'
+        || !parsed.accessToken
         || !parsed.user
-        || parsed.expiresAt <= Date.now()) {
-
+        ||  typeof parsed.expiresAt  !== 'number'
+        || !Number.isFinite(parsed.expiresAt)
+        || parsed.expiresAt <= Date.now()
+      ) {
         sessionStorage.removeItem(STORAGE_KEY);
         return null;
       }
-
-      return parsed;
+      return parsed as StoredSession;
     } catch {
       sessionStorage.removeItem(STORAGE_KEY);
       return null;

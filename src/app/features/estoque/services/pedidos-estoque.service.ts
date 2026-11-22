@@ -1,12 +1,9 @@
 import { computed, inject, Service, signal } from '@angular/core';
-import { catchError, finalize, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, finalize, Observable, switchMap, tap, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { BaseApiService } from '../../../core/http/base-api.service';
-import {
-  Medicamento,
-  PedidoEstoque,
-  PedidoStatus,
-} from '../models/estoque.model';
+import { PedidoEstoque, PedidoStatus } from '../models/estoque.model';
+import { AuditoriaEstoqueService } from './auditoria-estoque.service';
 import { MedicamentosService } from './medicamentos.service';
 import { CreatePedidoEstoqueDto } from '../models/dtos/estoque.dto';
 
@@ -18,6 +15,7 @@ export class PedidosEstoqueService {
   private readonly api = inject(BaseApiService);
   private readonly authService = inject(AuthService);
   private readonly medicamentosService = inject(MedicamentosService);
+  private readonly auditoriaService = inject(AuditoriaEstoqueService);
 
   private readonly _pedidos = signal<PedidoEstoque[]>([]);
   private readonly _isLoading = signal(false);
@@ -57,23 +55,30 @@ export class PedidosEstoqueService {
     if (!user) {
       return throwError(() => new Error('Usuário não autenticado.'));
     }
+    if (
+      !dto.medicamento_id.trim() ||
+      !Number.isFinite(dto.quantidade_solicitada) ||
+      dto.quantidade_solicitada <= 0
+    ) {
+      return throwError(
+        () => new Error('Selecione um medicamento e informe uma quantidade maior que zero.'),
+      );
+    }
 
     this._isSubmitting.set(true);
     this._error.set(null);
 
-    const payload = {
-      medicamento_id: dto.medicamento_id,
-      quantidade_solicitada: dto.quantidade_solicitada,
-      status: 'PENDENTE' as const,
-      medico_solicitante_id: user.role === 'MEDICO' ? user.id : null,
-      gerente_responsavel_id: user.role === 'GERENTE_ESTOQUE' ? user.id : null,
-      justificativa: dto.justificativa.trim() || null,
-    };
-
     return this.api
       .postOne<PedidoEstoque>(
         'pedidos_estoque',
-        payload,
+        {
+          medicamento_id: dto.medicamento_id.trim(),
+          quantidade_solicitada: Math.trunc(dto.quantidade_solicitada),
+          status: 'PENDENTE' as const,
+          medico_solicitante_id: user.role === 'MEDICO' ? user.id : null,
+          gerente_responsavel_id: user.role === 'GERENTE_ESTOQUE' ? user.id : null,
+          justificativa: dto.justificativa.trim() || null,
+        },
         'Falha ao registrar pedido de reestoque.',
         { select: PEDIDOS_SELECT },
       )
@@ -94,6 +99,32 @@ export class PedidosEstoqueService {
       return throwError(() => new Error('Usuário não autenticado.'));
     }
 
+    if (novoStatus === 'RECEBIDO') {
+      if (pedido.status !== 'PENDENTE' && pedido.status !== 'APROVADO') {
+        return throwError(() => new Error('Este pedido não pode mais ser recebido.'));
+      }
+
+      this._isSubmitting.set(true);
+      this._error.set(null);
+
+      return this.api.rpc<PedidoEstoque>('receber_pedido_estoque', { p_pedido_id: pedido.id }).pipe(
+        switchMap(() => this.loadPedidos()),
+        tap(() => {
+          this.medicamentosService.loadMedicamentos().subscribe();
+          if (this.auditoriaService.movimentacoes().length > 0) {
+            this.auditoriaService.loadMovimentacoes().subscribe();
+          }
+        }),
+        switchMap(() => {
+          const updated = this._pedidos().find((p) => p.id === pedido.id);
+          return updated
+            ? [updated]
+            : throwError(() => new Error('Pedido atualizado não encontrado.'));
+        }),
+        finalize(() => this._isSubmitting.set(false)),
+      );
+    }
+
     this._isSubmitting.set(true);
     this._error.set(null);
 
@@ -112,26 +143,6 @@ export class PedidosEstoqueService {
         'Pedido de estoque não encontrado.',
       )
       .pipe(
-        switchMap((updatedPedido) => {
-          if (novoStatus !== 'RECEBIDO') {
-            return of(updatedPedido);
-          }
-
-          const medicamento = this.resolverMedicamentoDoPedido(pedido);
-          if (!medicamento) {
-            return this.medicamentosService.loadMedicamentos().pipe(map(() => updatedPedido));
-          }
-
-          return this.medicamentosService
-            .movimentarSaldo({
-              medicamento,
-              tipo: 'ENTRADA',
-              quantidade: pedido.quantidade_solicitada,
-              medico_solicitante_id: pedido.medico_solicitante_id,
-              observacao: `Recebimento do pedido #${pedido.id.slice(0, 8)}`,
-            })
-            .pipe(map(() => updatedPedido));
-        }),
         tap((updatedPedido) => {
           this._pedidos.update((prev) =>
             prev.map((item) => (item.id === pedido.id ? updatedPedido : item)),
@@ -139,26 +150,5 @@ export class PedidosEstoqueService {
         }),
         finalize(() => this._isSubmitting.set(false)),
       );
-  }
-
-  private resolverMedicamentoDoPedido(pedido: PedidoEstoque): Medicamento | null {
-    const emMemoria = this.medicamentosService
-      .medicamentos()
-      .find((m) => m.id === pedido.medicamento_id);
-
-    if (emMemoria) return emMemoria;
-    if (!pedido.medicamento) return null;
-
-    return {
-      ...pedido.medicamento,
-      principio_ativo: '',
-      status:
-        pedido.medicamento.quantidade_atual < pedido.medicamento.estoque_minimo
-          ? 'REPOSICAO'
-          : 'NORMAL',
-      ativo: true,
-      criado_em: '',
-      atualizado_em: '',
-    };
   }
 }

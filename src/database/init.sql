@@ -208,6 +208,142 @@ CREATE TRIGGER trg_medicamentos_status_estoque
                      EXECUTE FUNCTION public.fn_atualizar_status_estoque();
 
 -- ============================================================================
+-- FUNÇÕES ATÔMICAS DE ESTOQUE (TRANSAÇÃO ACID + BLOQUEIO DE CONCORRÊNCIA)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.registrar_movimentacao_estoque(
+  p_medicamento_id UUID,
+  p_tipo public.tipo_movimentacao,
+  p_quantidade INTEGER,
+  p_observacao TEXT DEFAULT NULL,
+  p_medico_solicitante_id UUID DEFAULT NULL
+)
+RETURNS public.medicamentos
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+v_user_id UUID := auth.uid();
+  v_med public.medicamentos;
+  v_anterior INTEGER;
+  v_posterior INTEGER;
+  v_movimentada INTEGER;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado.';
+END IF;
+
+SELECT * INTO v_med
+FROM public.medicamentos
+WHERE id = p_medicamento_id
+  FOR UPDATE;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Medicamento não encontrado.';
+END IF;
+
+  v_anterior := v_med.quantidade_atual;
+
+  IF p_tipo = 'ENTRADA' THEN
+    IF p_quantidade IS NULL OR p_quantidade <= 0 THEN
+      RAISE EXCEPTION 'A quantidade de entrada deve ser maior que zero.';
+END IF;
+    v_posterior := v_anterior + p_quantidade;
+    v_movimentada := p_quantidade;
+  ELSIF p_tipo = 'SAIDA' THEN
+    IF p_quantidade IS NULL OR p_quantidade <= 0 THEN
+      RAISE EXCEPTION 'A quantidade de saída deve ser maior que zero.';
+END IF;
+    IF p_quantidade > v_anterior THEN
+      RAISE EXCEPTION 'Saldo insuficiente em estoque para esta saída.';
+END IF;
+    v_posterior := v_anterior - p_quantidade;
+    v_movimentada := p_quantidade;
+ELSE
+    IF p_quantidade IS NULL OR p_quantidade < 0 THEN
+      RAISE EXCEPTION 'O saldo ajustado não pode ser negativo.';
+END IF;
+    v_posterior := p_quantidade;
+    v_movimentada := ABS(v_posterior - v_anterior);
+END IF;
+
+UPDATE public.medicamentos
+SET quantidade_atual = v_posterior
+WHERE id = p_medicamento_id
+  RETURNING * INTO v_med;
+
+INSERT INTO public.estoque_movimentacoes (
+  medicamento_id,
+  tipo,
+  quantidade_anterior,
+  quantidade_movimentada,
+  quantidade_posterior,
+  gerente_responsavel_id,
+  medico_solicitante_id,
+  observacao
+) VALUES (
+           p_medicamento_id,
+           p_tipo,
+           v_anterior,
+           v_movimentada,
+           v_posterior,
+           v_user_id,
+           p_medico_solicitante_id,
+           NULLIF(TRIM(COALESCE(p_observacao, '')), '')
+         );
+
+RETURN v_med;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.receber_pedido_estoque(
+  p_pedido_id UUID
+)
+RETURNS public.pedidos_estoque
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+v_user_id UUID := auth.uid();
+  v_pedido public.pedidos_estoque;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Usuário não autenticado.';
+END IF;
+
+SELECT * INTO v_pedido
+FROM public.pedidos_estoque
+WHERE id = p_pedido_id
+  FOR UPDATE;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pedido de estoque não encontrado.';
+END IF;
+
+  IF v_pedido.status NOT IN ('PENDENTE', 'APROVADO') THEN
+    RAISE EXCEPTION 'Apenas pedidos pendentes ou aprovados podem ser marcados como recebidos.';
+END IF;
+
+UPDATE public.pedidos_estoque
+SET status = 'RECEBIDO',
+    gerente_responsavel_id = v_user_id,
+    atualizado_em = NOW()
+WHERE id = p_pedido_id
+  RETURNING * INTO v_pedido;
+
+PERFORM public.registrar_movimentacao_estoque(
+    v_pedido.medicamento_id,
+    'ENTRADA',
+    v_pedido.quantidade_solicitada,
+    'Recebimento do pedido #' || LEFT(v_pedido.id::text, 8),
+    v_pedido.medico_solicitante_id
+  );
+
+RETURN v_pedido;
+END;
+$$;
+
+-- ============================================================================
 -- 5. SEGURANÇA: ROW LEVEL SECURITY (RLS) E POLÍTICAS POR ROLE
 -- ============================================================================
 
@@ -222,9 +358,17 @@ ALTER TABLE public.receituario_itens ENABLE ROW LEVEL SECURITY;
 
 -- Helper para ler a role direto do JWT sem causar recursão em queries
 CREATE OR REPLACE FUNCTION public.current_app_role()
-RETURNS TEXT AS $$
-SELECT COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', 'ANON');
-$$ LANGUAGE sql STABLE;
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+SELECT COALESCE(
+         (SELECT role::text FROM public.perfis WHERE id = auth.uid()),
+         'ANON'
+       );
+$$;
 
 -- Políticas: PERFIS
 DROP POLICY IF EXISTS "perfis_leitura_autenticada" ON public.perfis;
@@ -267,9 +411,15 @@ CREATE POLICY "pedidos_estoque_update_gerente" ON public.pedidos_estoque
 
 -- Políticas: AUDITORIA DE ESTOQUE (Somente Gerente de Estoque)
 DROP POLICY IF EXISTS "auditoria_estoque_gerente" ON public.estoque_movimentacoes;
-CREATE POLICY "auditoria_estoque_gerente" ON public.estoque_movimentacoes
-  FOR ALL TO authenticated
-  USING (public.current_app_role() = 'GERENTE_ESTOQUE')
+DROP POLICY IF EXISTS "auditoria_estoque_leitura" ON public.estoque_movimentacoes;
+DROP POLICY IF EXISTS "auditoria_estoque_insercao" ON public.estoque_movimentacoes;
+
+CREATE POLICY "auditoria_estoque_leitura" ON public.estoque_movimentacoes
+  FOR SELECT TO authenticated
+                              USING (public.current_app_role() = 'GERENTE_ESTOQUE');
+
+CREATE POLICY "auditoria_estoque_insercao" ON public.estoque_movimentacoes
+  FOR INSERT TO authenticated
   WITH CHECK (public.current_app_role() = 'GERENTE_ESTOQUE');
 
 -- Políticas: AGENDAMENTOS
