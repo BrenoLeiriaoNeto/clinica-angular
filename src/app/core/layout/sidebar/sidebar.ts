@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Pedidos de Compra',
     route: '/pedidos-estoque',
     icon: 'pi pi-shopping-cart',
-    roles: ['GERENTE_ESTOQUE'],
+    roles: ['GERENTE_ESTOQUE', 'MEDICO'],
   },
   {
     label: 'Auditoria de Estoque',

@@ -6,6 +6,7 @@ import Aura from '@openng/optimus-ui-themes/aura';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { supabaseInterceptor } from './core/http/supabase.interceptor';
 import { ThemeService } from './core/theme/theme.service';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -15,6 +16,8 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       inject(ThemeService)
     }),
+    MessageService,
+    ConfirmationService,
     provideOptimus({ theme: {
       preset: Aura,
       options: {

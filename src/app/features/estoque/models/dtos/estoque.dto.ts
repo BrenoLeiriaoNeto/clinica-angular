@@ -29,3 +29,9 @@ export interface RegistrarMovimentacaoDto {
   observacao: string;
   medico_solicitante_id?: string | null;
 }
+
+export interface MovimentacaoDto {
+  tipo: TipoMovimentacao;
+  quantidade: number;
+  observacao: string;
+}
