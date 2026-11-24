@@ -1,0 +1,148 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  header="Solicitar Re-estoque de Medicamento"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '32rem', maxWidth: '94vw' }"
+>
+  @if (submitError()) {
+    <div
+      role="alert"
+      aria-live="assertive"
+      class="mb-md"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ submitError()! }}
+      </p-message>
+    </div>
+  }
+
+  <form
+    class="dialog-form"
+    (submit)="onSubmit($event)"
+    novalidate
+  >
+    <div class="dialog-form__field">
+      <label for="ped-med">Medicamento</label>
+      <select
+        id="ped-med"
+        class="dialog-form__select"
+        [formField]="pedidoForm.medicamento_id"
+        [attr.aria-invalid]="
+          pedidoForm.medicamento_id().touched() && pedidoForm.medicamento_id().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          pedidoForm.medicamento_id().touched() && pedidoForm.medicamento_id().invalid()
+            ? 'ped-med-err'
+            : null
+        "
+      >
+        <option
+          value=""
+          disabled
+        >
+          Selecione um medicamento ativo
+        </option>
+        @for (med of medicamentosAtivos(); track med.id) {
+          <option [value]="med.id">
+            {{ med.codigo_sku }} - {{ med.nome }} (saldo: {{ med.quantidade_atual }})
+          </option>
+        }
+      </select>
+      @if (pedidoForm.medicamento_id().touched() && pedidoForm.medicamento_id().invalid()) {
+        <span
+          id="ped-med-err"
+          class="dialog-form__error"
+        >
+          {{ pedidoForm.medicamento_id().errors()[0]?.message }}
+        </span>
+      }
+    </div>
+
+    <div class="dialog-form__field">
+      <label for="ped-qtd">Quantidade Solicitada</label>
+      <input
+        pInputText
+        id="ped-qtd"
+        type="number"
+        step="1"
+        [formField]="pedidoForm.quantidade_solicitada"
+        [attr.aria-invalid]="
+          pedidoForm.quantidade_solicitada().touched() &&
+          pedidoForm.quantidade_solicitada().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          pedidoForm.quantidade_solicitada().touched() &&
+          pedidoForm.quantidade_solicitada().invalid()
+            ? 'ped-qtd-err'
+            : null
+        "
+      />
+      @if (
+        pedidoForm.quantidade_solicitada().touched() && pedidoForm.quantidade_solicitada().invalid()
+      ) {
+        <span
+          id="ped-qtd-err"
+          class="dialog-form__error"
+        >
+          {{ pedidoForm.quantidade_solicitada().errors()[0]?.message }}
+        </span>
+      }
+    </div>
+
+    <div class="dialog-form__field">
+      <label for="ped-just">Justificativa</label>
+      <textarea
+        pTextarea
+        id="ped-just"
+        rows="3"
+        [formField]="pedidoForm.justificativa"
+        placeholder="Ex: Estoque abaixo do mínimo para demanda semanal de prescrições"
+        [attr.aria-invalid]="
+          pedidoForm.justificativa().touched() && pedidoForm.justificativa().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          pedidoForm.justificativa().touched() && pedidoForm.justificativa().invalid()
+            ? 'ped-just-err'
+            : null
+        "
+      ></textarea>
+      @if (pedidoForm.justificativa().touched() && pedidoForm.justificativa().invalid()) {
+        <span
+          id="ped-just-err"
+          class="dialog-form__error"
+        >
+          {{ pedidoForm.justificativa().errors()[0]?.message }}
+        </span>
+      }
+    </div>
+
+    <div class="dialog-form__actions">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        [text]="true"
+        [disabled]="isSubmitting()"
+        (onClick)="onClose()"
+      />
+      <p-button
+        type="submit"
+        label="Enviar Solicitação"
+        icon="pi pi-send"
+        [loading]="isSubmitting()"
+        [disabled]="pedidoForm().invalid() || isSubmitting()"
+      />
+    </div>
+  </form>
+</p-dialog>
