@@ -13,12 +13,14 @@ import { RouterLink } from '@angular/router';
 import { Message } from '@openng/optimus-ui/message';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { HasRoleDirective } from '../../../../shared/directives/has-role.directive';
+import { InputText } from '@openng/optimus-ui/inputtext';
 
 @Component({
   selector: 'app-estoque-list-page',
   templateUrl: './estoque-list.html',
   styleUrl: '../estoque-pages.scss',
   imports: [
+    InputText,
     Button,
     Dialog,
     PedidoFormDialog,

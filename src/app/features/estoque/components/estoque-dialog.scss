@@ -58,7 +58,7 @@
 
   &__error {
     font-size: 0.78rem;
-    color: #ef4444;
+    color: var(--app-status-danger);
     font-weight: 500;
   }
 

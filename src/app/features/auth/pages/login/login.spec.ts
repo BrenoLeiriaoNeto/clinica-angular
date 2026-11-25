@@ -12,8 +12,7 @@ describe('Login', () => {
   let router: Router;
 
   const authServiceMock = {
-    login: vi.fn((_email: string, _password: string): Observable<UserProfile> =>
-      throwError(() => new Error('Invalid credentials'))),
+    login: vi.fn((): Observable<UserProfile> => throwError(() => new Error('Invalid credentials'))),
     homeRouteByRole: vi.fn((): string => '/dashboard'),
   };
 
@@ -120,5 +119,4 @@ describe('Login', () => {
     expect(authServiceMock.login).toHaveBeenCalledWith('medico@medicore.com', 'Clinica@2026');
     expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
-
 });

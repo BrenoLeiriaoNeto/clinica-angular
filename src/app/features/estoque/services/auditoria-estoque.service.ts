@@ -2,9 +2,7 @@ import { computed, inject, Service, signal } from '@angular/core';
 import { catchError, defer, finalize, Observable, tap, throwError } from 'rxjs';
 import { BaseApiService } from '../../../core/http/base-api.service';
 import { EstoqueMovimentacao } from '../models/estoque.model';
-
-const MOVIMENTACOES_SELECT =
-  '*,medicamento:medicamentos(id,codigo_sku,nome,unidade_medida),gerente:perfis!gerente_responsavel_id(id,nome_completo),medico:perfis!medico_solicitante_id(id,nome_completo)';
+import { MOVIMENTACOES_SELECT } from '../../../../database/queries';
 
 @Service()
 export class AuditoriaEstoqueService {

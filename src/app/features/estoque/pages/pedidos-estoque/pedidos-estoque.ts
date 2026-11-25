@@ -13,6 +13,7 @@ import { Message } from '@openng/optimus-ui/message';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { DatePipe } from '@angular/common';
 import { HasRoleDirective } from '../../../../shared/directives/has-role.directive';
+import { InputText } from '@openng/optimus-ui/inputtext';
 
 interface PendingTransition {
   pedido: PedidoEstoque;
@@ -24,6 +25,7 @@ interface PendingTransition {
   templateUrl: './pedidos-estoque.html',
   styleUrl: '../estoque-pages.scss',
   imports: [
+    InputText,
     DatePipe,
     HasRoleDirective,
     Button,

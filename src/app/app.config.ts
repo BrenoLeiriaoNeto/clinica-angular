@@ -1,4 +1,9 @@
-import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners  } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
 import { provideOptimus } from '@openng/optimus-ui/config';
@@ -14,17 +19,18 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptors([supabaseInterceptor])),
     provideAppInitializer(() => {
-      inject(ThemeService)
+      inject(ThemeService);
     }),
     MessageService,
     ConfirmationService,
-    provideOptimus({ theme: {
-      preset: Aura,
-      options: {
-        darkModeSelector: '.app-dark'
-      }
-    },
-      ripple: true
+    provideOptimus({
+      theme: {
+        preset: Aura,
+        options: {
+          darkModeSelector: '.app-dark',
+        },
+      },
+      ripple: true,
     }),
   ],
 };

@@ -10,6 +10,8 @@ export interface BreadcrumbItem {
   isLast: boolean;
 }
 
+type RawBreadcrumb = Omit<BreadcrumbItem, 'isLast'>;
+
 @Service()
 export class BreadcrumbService {
   private readonly router = inject(Router);
@@ -21,7 +23,7 @@ export class BreadcrumbService {
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
       startWith(null),
     ),
-    { initialValue: null},
+    { initialValue: null },
   );
 
   readonly items = computed<BreadcrumbItem[]>(() => {
@@ -29,10 +31,7 @@ export class BreadcrumbService {
     const homeRoute = this.authService.homeRouteByRole();
     const trail = this.collectRouteBreadcrumbs(this.activatedRoute.root);
 
-    const rawItems: Array<{ label: string; route: string }> = [
-      { label: 'Início', route: homeRoute },
-      ...trail,
-    ];
+    const rawItems: RawBreadcrumb[] = [{ label: 'Início', route: homeRoute }, ...trail];
 
     return rawItems.map((item, index) => ({
       ...item,
@@ -43,18 +42,15 @@ export class BreadcrumbService {
   private collectRouteBreadcrumbs(
     route: ActivatedRoute,
     accumulatedUrl = '',
-    items: Array<{ label: string; route: string }> = [],
-  ): Array<{ label: string; route: string }> {
+    items: RawBreadcrumb[] = [],
+  ): RawBreadcrumb[] {
     const child = route.firstChild;
     if (!child) {
       return items;
     }
 
-    const segmentPath = child.snapshot.url.map((segment) =>
-      segment.path).join('/');
-    const nextUrl = segmentPath ?
-      `${accumulatedUrl}/${segmentPath}` :
-      accumulatedUrl;
+    const segmentPath = child.snapshot.url.map((segment) => segment.path).join('/');
+    const nextUrl = segmentPath ? `${accumulatedUrl}/${segmentPath}` : accumulatedUrl;
 
     const label =
       (child.snapshot.data['breadcrumb'] as string | undefined) ??

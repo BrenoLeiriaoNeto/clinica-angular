@@ -2,9 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { provideRouter } from '@angular/router';
 import { MessageService } from '@openng/optimus-ui/api';
-import { of } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { UserProfile, UserRole } from '../../../../core/models/auth.model';
@@ -13,6 +12,7 @@ import { MedicamentoDetailPage } from './medicamento-detail';
 describe('MedicamentoDetailPage (Integração)', () => {
   let fixture: ComponentFixture<MedicamentoDetailPage>;
   let httpMock: HttpTestingController;
+  let userSignal: ReturnType<typeof signal<UserProfile | null>>;
 
   const mockGerente: UserProfile = {
     id: '33333333-3333-3333-3333-333333333333',
@@ -21,8 +21,29 @@ describe('MedicamentoDetailPage (Integração)', () => {
     role: 'GERENTE_ESTOQUE',
   };
 
+  const mockMedico: UserProfile = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'medico@medicore.com',
+    fullName: 'Dr. Henrique Vasconcelos',
+    role: 'MEDICO',
+  };
+
+  const mockMedicamento = {
+    id: 'med-1',
+    codigo_sku: 'MED-001',
+    nome: 'Amoxicilina 500mg',
+    principio_ativo: 'Amoxicilina Tri-hidratada',
+    unidade_medida: 'Caixa c/ 21 caps',
+    quantidade_atual: 30,
+    estoque_minimo: 50,
+    status: 'REPOSICAO' as const,
+    ativo: true,
+    criado_em: '2026-11-20T10:00:00Z',
+    atualizado_em: '2026-11-22T12:00:00Z',
+  };
+
   beforeEach(async () => {
-    const userSignal = signal<UserProfile | null>(mockGerente);
+    userSignal = signal<UserProfile | null>(mockGerente);
 
     await TestBed.configureTestingModule({
       imports: [MedicamentoDetailPage],
@@ -31,10 +52,6 @@ describe('MedicamentoDetailPage (Integração)', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         MessageService,
-        {
-          provide: ActivatedRoute,
-          useValue: { paramMap: of(convertToParamMap({ id: 'med-1' })) },
-        },
         {
           provide: AuthService,
           useValue: {
@@ -56,26 +73,13 @@ describe('MedicamentoDetailPage (Integração)', () => {
     httpMock.verify();
   });
 
-  it('exibe ficha do medicamento, movimentações e pedidos filtrados pelo ID da rota', () => {
+  it('exibe ficha do medicamento, movimentações e pedidos filtrados pelo input id para GERENTE_ESTOQUE', () => {
+    fixture.componentRef.setInput('id', 'med-1');
     fixture.detectChanges();
 
     httpMock
       .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
-      .flush([
-        {
-          id: 'med-1',
-          codigo_sku: 'MED-001',
-          nome: 'Amoxicilina 500mg',
-          principio_ativo: 'Amoxicilina Tri-hidratada',
-          unidade_medida: 'Caixa c/ 21 caps',
-          quantidade_atual: 30,
-          estoque_minimo: 50,
-          status: 'REPOSICAO',
-          ativo: true,
-          criado_em: '2026-11-20T10:00:00Z',
-          atualizado_em: '2026-11-22T12:00:00Z',
-        },
-      ]);
+      .flush([mockMedicamento]);
 
     httpMock
       .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
@@ -131,5 +135,50 @@ describe('MedicamentoDetailPage (Integração)', () => {
     expect(text).toContain('Dispensação ambulatorial');
     expect(text).not.toContain('Outro item');
     expect(text).toContain('Abaixo do mínimo');
+  });
+
+  it('não consulta nem exibe auditoria quando o usuário logado é MEDICO', () => {
+    userSignal.set(mockMedico);
+    fixture.componentRef.setInput('id', 'med-1');
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([mockMedicamento]);
+
+    httpMock.expectNone(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`,
+    );
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([]);
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Amoxicilina 500mg');
+    expect(text).not.toContain('Histórico de Movimentações');
+    expect(text).toContain('Pedidos de Re-estoque Relacionados');
+  });
+
+  it('exibe alerta quando o medicamento não existe no catálogo', () => {
+    fixture.componentRef.setInput('id', 'id-inexistente');
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([mockMedicamento]);
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
+      .flush([]);
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([]);
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Medicamento não encontrado');
   });
 });

@@ -112,7 +112,7 @@ export class Login {
       });
   }
 
-  protected toggleTheme(): void {
-    this.themeService.toggleTheme();
+  protected toggleTheme(event?: MouseEvent): void {
+    this.themeService.toggleFromEvent(event);
   }
 }

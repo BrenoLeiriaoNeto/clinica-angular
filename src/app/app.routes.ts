@@ -73,7 +73,7 @@ export const routes: Routes = [
         path: 'pedidos-estoque',
         canActivate: [roleGuard],
         data: {
-          roles: ['GERENTE_ESTOQUE'],
+          roles: ['GERENTE_ESTOQUE', 'MEDICO'],
           breadcrumb: 'Pedidos de Compra',
           title: 'Pedidos de Reestoque',
           description: 'Aprovação e recebimento de pedidos de compra de medicamentos.',

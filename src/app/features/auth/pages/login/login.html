@@ -6,14 +6,17 @@
       severity="secondary"
       [outlined]="true"
       [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
-      (onClick)="toggleTheme()"
+      (onClick)="toggleTheme($event)"
     />
   </div>
 
   <div class="login-card">
     <section class="login-hero">
       <div class="login-hero__brand">
-        <i class="pi pi-heart" aria-hidden="true"></i>
+        <i
+          class="pi pi-heart"
+          aria-hidden="true"
+        ></i>
         <span>MediCore ERP</span>
       </div>
 
@@ -25,9 +28,27 @@
         </p>
 
         <ul class="login-hero__highlights">
-          <li><i class="pi pi-check-circle" aria-hidden="true"></i> Agenda médica com validação de turnos e antecedência</li>
-          <li><i class="pi pi-check-circle" aria-hidden="true"></i> Receituário digital com controle de validade e reemissão</li>
-          <li><i class="pi pi-check-circle" aria-hidden="true"></i> Estoque de medicamentos com alerta automático e auditoria</li>
+          <li>
+            <i
+              class="pi pi-check-circle"
+              aria-hidden="true"
+            ></i>
+            Agenda médica com validação de turnos e antecedência
+          </li>
+          <li>
+            <i
+              class="pi pi-check-circle"
+              aria-hidden="true"
+            ></i>
+            Receituário digital com controle de validade e reemissão
+          </li>
+          <li>
+            <i
+              class="pi pi-check-circle"
+              aria-hidden="true"
+            ></i>
+            Estoque de medicamentos com alerta automático e auditoria
+          </li>
         </ul>
       </div>
 
@@ -38,85 +59,118 @@
 
     <section class="login-form-area">
       <div class="login-form-area__header">
-          <h1 class="login-form-title">Acesso ao Sistema</h1>
-          <p class="text-muted">
-            Entre com suas credenciais ou utilize um perfil de demonstração.
-          </p>
+        <h1 class="login-form-title">Acesso ao Sistema</h1>
+        <p class="text-muted">Entre com suas credenciais ou utilize um perfil de demonstração.</p>
+      </div>
+
+      @if (errorMessage()) {
+        <div
+          role="alert"
+          aria-live="assertive"
+        >
+          <p-message
+            severity="error"
+            styleClass="w-full mb-md"
+          >
+            {{ errorMessage()! }}
+          </p-message>
         </div>
+      }
 
-        @if (errorMessage()) {
-          <div role="alert" aria-live="assertive">
-            <p-message severity="error" styleClass="w-full mb-md">{{errorMessage()!}}</p-message>
-          </div>
-        }
-
-        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="flex-col gap-md">
-          <div class="form-field">
-            <label for="email">E-mail</label>
-            <input
-              pInputText
-              id="email"
-              type="email"
-              formControlName="email"
-              [attr.aria-describedby]="
-              loginForm.controls.email.touched && loginForm.controls.email.invalid ? 'email-error' : null
+      <form
+        [formGroup]="loginForm"
+        (ngSubmit)="onSubmit()"
+        class="flex-col gap-md"
+      >
+        <div class="form-field">
+          <label for="email">E-mail</label>
+          <input
+            pInputText
+            id="email"
+            type="email"
+            formControlName="email"
+            [attr.aria-describedby]="
+              loginForm.controls.email.touched && loginForm.controls.email.invalid
+                ? 'email-error'
+                : null
             "
-              [attr.aria-invalid]="
+            [attr.aria-invalid]="
               loginForm.controls.email.touched && loginForm.controls.email.invalid ? 'true' : null
             "
-              placeholder="ex: medico@medicore.com"
-              autocomplete="username"
-            />
-            @if (loginForm.controls.email.touched && loginForm.controls.email.invalid) {
-              <span id="email-error" class="field-error">Informe um endereço de e-mail válido.</span>
-            }
-          </div>
-
-          <div class="form-field">
-            <label for="password">Senha</label>
-            <p-password
-              inputId="password"
-              formControlName="password"
-              [feedback]="false"
-              [toggleMask]="true"
-              [pt]="passwordInputPt()"
-              (input)="updatePasswordError()"
-              (onBlur)="onPasswordBlur()"
-              placeholder="••••••••"
-              autocomplete="current-password"
-            />
-            @if (passwordErrorVisible()) {
-              <span id="password-error" class="field-error">A senha deve ter no mínimo 6 caracteres.</span>
-            }
-          </div>
-
-          <p-button
-            type="submit"
-            label="Entrar"
-            icon="pi pi-sign-in"
-            [loading]="isLoading()"
-            [disabled]="loginForm.invalid || isLoading()"
-            styleClass="w-full mt-sm"
+            placeholder="ex: medico@medicore.com"
+            autocomplete="username"
           />
-        </form>
-
-        <div class="demo-box" role="group" aria-labelledby="demo-accounts-title">
-          <span id="demo-accounts-title" class="demo-box__title">Preenchimento rápido (Ambiente de Avaliação):</span>
-          <div class="demo-box__grid">
-            @for (acc of demoAccounts; track acc.role) {
-              <button
-                type="button"
-                class="demo-chip"
-                (click)="fillCredentials(acc.email)"
-                [disabled]="isLoading()"
-              >
-                <i [class]="acc.icon" aria-hidden="true"></i>
-                <span>{{ acc.label }}</span>
-              </button>
-            }
-          </div>
+          @if (loginForm.controls.email.touched && loginForm.controls.email.invalid) {
+            <span
+              id="email-error"
+              class="field-error"
+            >
+              Informe um endereço de e-mail válido.
+            </span>
+          }
         </div>
+
+        <div class="form-field">
+          <label for="password">Senha</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            [feedback]="false"
+            [toggleMask]="true"
+            [pt]="passwordInputPt()"
+            (input)="updatePasswordError()"
+            (onBlur)="onPasswordBlur()"
+            placeholder="••••••••"
+            autocomplete="current-password"
+          />
+          @if (passwordErrorVisible()) {
+            <span
+              id="password-error"
+              class="field-error"
+            >
+              A senha deve ter no mínimo 6 caracteres.
+            </span>
+          }
+        </div>
+
+        <p-button
+          type="submit"
+          label="Entrar"
+          icon="pi pi-sign-in"
+          [loading]="isLoading()"
+          [disabled]="loginForm.invalid || isLoading()"
+          styleClass="w-full mt-sm"
+        />
+      </form>
+
+      <div
+        class="demo-box"
+        role="group"
+        aria-labelledby="demo-accounts-title"
+      >
+        <span
+          id="demo-accounts-title"
+          class="demo-box__title"
+        >
+          Preenchimento rápido (Ambiente de Avaliação):
+        </span>
+        <div class="demo-box__grid">
+          @for (acc of demoAccounts; track acc.role) {
+            <button
+              type="button"
+              class="demo-chip"
+              (click)="fillCredentials(acc.email)"
+              [disabled]="isLoading()"
+            >
+              <i
+                [class]="acc.icon"
+                aria-hidden="true"
+              ></i>
+              <span>{{ acc.label }}</span>
+            </button>
+          }
+        </div>
+      </div>
     </section>
   </div>
 </main>
-

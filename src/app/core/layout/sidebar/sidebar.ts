@@ -122,8 +122,8 @@ export class Sidebar {
   }
 
   focusDrawer(): void {
-    const target = this.hostRef.nativeElement.querySelector<HTMLElement>(
-      'button.sidebar__close-btn, .sidebar__close-btn, .sidebar__link',
-    )?.focus();
+    this.hostRef.nativeElement
+      .querySelector<HTMLElement>('button.sidebar__close-btn, .sidebar__close-btn, .sidebar__link')
+      ?.focus();
   }
 }

@@ -319,6 +319,10 @@ IF NOT FOUND THEN
     RAISE EXCEPTION 'Medicamento não encontrado.';
 END IF;
 
+IF NOT v_med.ativo THEN
+  RAISE EXCEPTION 'Não é possível movimentar saldo de um medicamento descontinuado';
+END IF;
+
   v_anterior := v_med.quantidade_atual;
 
   IF p_tipo = 'ENTRADA' THEN
@@ -527,6 +531,10 @@ CREATE POLICY "pedidos_estoque_insercao" ON public.pedidos_estoque
   FOR INSERT TO authenticated
   WITH CHECK (
     status = 'PENDENTE'
+    AND EXISTS (
+      SELECT 1 FROM public.medicamentos m
+      WHERE m.id = medicamento_id AND m.ativo = TRUE
+    )
     AND (
       (public.current_app_role() = 'MEDICO' AND medico_solicitante_id = auth.uid() AND gerente_responsavel_id IS NULL)
       OR

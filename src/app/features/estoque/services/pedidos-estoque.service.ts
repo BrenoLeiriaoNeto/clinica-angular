@@ -6,9 +6,7 @@ import { PedidoEstoque, PedidoStatus } from '../models/estoque.model';
 import { AuditoriaEstoqueService } from './auditoria-estoque.service';
 import { MedicamentosService } from './medicamentos.service';
 import { CreatePedidoEstoqueDto } from '../models/dtos/estoque.dto';
-
-const PEDIDOS_SELECT =
-  '*,medicamento:medicamentos(id,codigo_sku,nome,unidade_medida,quantidade_atual,estoque_minimo),solicitante:perfis!medico_solicitante_id(id,nome_completo,role),gerente:perfis!gerente_responsavel_id(id,nome_completo)';
+import { PEDIDOS_SELECT } from '../../../../database/queries';
 
 @Service()
 export class PedidosEstoqueService {

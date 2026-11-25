@@ -1,10 +1,9 @@
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MedicamentosService } from '../../services/medicamentos.service';
 import { AuditoriaEstoqueService } from '../../services/auditoria-estoque.service';
 import { PedidosEstoqueService } from '../../services/pedidos-estoque.service';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TipoMovimentacao } from '../../models/estoque.model';
 import { Message } from '@openng/optimus-ui/message';
 import { PedidoFormDialog } from '../../components/pedido-form-dialog/pedido-form-dialog';
@@ -15,6 +14,7 @@ import { Button } from '@openng/optimus-ui/button';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { DatePipe } from '@angular/common';
 import { HasRoleDirective } from '../../../../shared/directives/has-role.directive';
+import { AuthService } from '../../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-medicamento-detail-page',
@@ -34,41 +34,46 @@ import { HasRoleDirective } from '../../../../shared/directives/has-role.directi
   ],
 })
 export class MedicamentoDetailPage implements OnInit {
-  private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authService = inject(AuthService);
 
   protected readonly medicamentosService = inject(MedicamentosService);
   protected readonly auditoriaService = inject(AuditoriaEstoqueService);
   protected readonly pedidosService = inject(PedidosEstoqueService);
 
+  readonly id = input<string>();
+
   protected readonly formDialogVisible = signal(false);
   protected readonly movDialogVisible = signal(false);
   protected readonly pedidoDialogVisible = signal(false);
 
-  protected readonly medicamentoId = toSignal(
-    this.route.paramMap.pipe(map((params) => params.get('id'))),
-    { initialValue: null },
+  protected readonly canViewAuditoria = computed((): boolean =>
+    this.authService.hasAnyRole(['GERENTE_ESTOQUE']),
+  );
+
+  protected readonly canViewPedidos = computed((): boolean =>
+    this.authService.hasAnyRole(['GERENTE_ESTOQUE', 'MEDICO']),
   );
 
   protected readonly medicamento = computed(() => {
-    const id = this.medicamentoId();
-    if (!id) return null;
+    const medId = this.id();
+    if (!medId) return null;
 
-    return this.medicamentosService.medicamentos().find((item) => item.id === id) ?? null;
+    return this.medicamentosService.medicamentos().find((item) => item.id === medId) ?? null;
   });
 
   protected readonly movimentacoesDoItem = computed(() => {
-    const id = this.medicamentoId();
-    if (!id) return [];
+    const medId = this.id();
+    if (!medId) return [];
 
-    return this.auditoriaService.movimentacoes().filter((mov) => mov.medicamento_id === id);
+    return this.auditoriaService.movimentacoes().filter((mov) => mov.medicamento_id === medId);
   });
 
   protected readonly pedidosDoItem = computed(() => {
-    const id = this.medicamentoId();
-    if (!id) return [];
+    const medId = this.id();
+    if (!medId) return [];
 
-    return this.pedidosService.pedidos().filter((pedido) => pedido.medicamento_id === id);
+    return this.pedidosService.pedidos().filter((pedido) => pedido.medicamento_id === medId);
   });
 
   protected readonly deficitParaMinimo = computed(() => {
@@ -84,15 +89,19 @@ export class MedicamentoDetailPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ error: () => undefined });
 
-    this.auditoriaService
-      .loadMovimentacoes()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => undefined });
+    if (this.canViewAuditoria()) {
+      this.auditoriaService
+        .loadMovimentacoes()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ error: () => undefined });
+    }
 
-    this.pedidosService
-      .loadPedidos()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => undefined });
+    if (this.canViewPedidos()) {
+      this.pedidosService
+        .loadPedidos()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ error: () => undefined });
+    }
   }
 
   protected formatDelta(tipo: TipoMovimentacao, quantidade: number): string {
@@ -102,9 +111,11 @@ export class MedicamentoDetailPage implements OnInit {
   }
 
   protected onMovimentacaoConcluida(): void {
-    this.auditoriaService
-      .loadMovimentacoes()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => undefined });
+    if (this.canViewAuditoria() && this.auditoriaService.movimentacoes().length === 0) {
+      this.auditoriaService
+        .loadMovimentacoes()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({ error: () => undefined });
+    }
   }
 }

@@ -119,139 +119,149 @@
       </dl>
     </div>
 
-    <div class="surface-card">
-      <div class="section-heading">
-        <h2>Histórico de Movimentações</h2>
-        <span>{{ movimentacoesDoItem().length }} registro(s)</span>
-      </div>
+    @if (canViewAuditoria()) {
+      <div class="surface-card">
+        <div class="section-heading">
+          <h2>Histórico de Movimentações</h2>
+          <span>{{ movimentacoesDoItem().length }} registro(s)</span>
+        </div>
 
-      @if (auditoriaService.isLoading()) {
-        <div
-          class="state-box"
-          role="status"
-          aria-live="polite"
-        >
-          <i
-            class="pi pi-spin pi-spinner"
-            aria-hidden="true"
-          ></i>
-          <p>Carregando movimentações...</p>
-        </div>
-      } @else if (movimentacoesDoItem().length === 0) {
-        <div class="state-box">
-          <i
-            class="pi pi-history"
-            aria-hidden="true"
-          ></i>
-          <p>Nenhuma movimentação registrada para este medicamento.</p>
-        </div>
-      } @else {
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Data</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Anterior</th>
-                <th scope="col">Movimentação</th>
-                <th scope="col">Posterior</th>
-                <th scope="col">Responsável</th>
-                <th scope="col">Observação</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (mov of movimentacoesDoItem(); track mov.id) {
+        @if (auditoriaService.isLoading()) {
+          <div
+            class="state-box"
+            role="status"
+            aria-live="polite"
+          >
+            <i
+              class="pi pi-spin pi-spinner"
+              aria-hidden="true"
+            ></i>
+            <p>Carregando movimentações...</p>
+          </div>
+        } @else if (movimentacoesDoItem().length === 0) {
+          <div class="state-box">
+            <i
+              class="pi pi-history"
+              aria-hidden="true"
+            ></i>
+            <p>Nenhuma movimentação registrada para este medicamento.</p>
+          </div>
+        } @else {
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td class="data-table__num">{{ mov.criado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  <td><app-status-badge [status]="mov.tipo" /></td>
-                  <td class="data-table__num">{{ mov.quantidade_anterior }}</td>
-                  <td class="data-table__num">
-                    <span
-                      class="qty-delta"
-                      [class.qty-delta--pos]="mov.tipo === 'ENTRADA'"
-                      [class.qty-delta--neg]="mov.tipo === 'SAIDA'"
-                      [class.qty-delta--neutral]="mov.tipo === 'AJUSTE'"
-                    >
-                      {{ formatDelta(mov.tipo, mov.quantidade_movimentada) }}
-                    </span>
-                  </td>
-                  <td class="data-table__num">
-                    <strong>{{ mov.quantidade_posterior }}</strong>
-                  </td>
-                  <td>
-                    <span class="data-table__primary">{{ mov.gerente?.nome_completo ?? '—' }}</span>
-                    @if (mov.medico) {
-                      <span class="data-table__secondary">
-                        Solic.: {{ mov.medico.nome_completo }}
+                  <th scope="col">Data</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Anterior</th>
+                  <th scope="col">Movimentação</th>
+                  <th scope="col">Posterior</th>
+                  <th scope="col">Responsável</th>
+                  <th scope="col">Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (mov of movimentacoesDoItem(); track mov.id) {
+                  <tr>
+                    <td class="data-table__num">{{ mov.criado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td><app-status-badge [status]="mov.tipo" /></td>
+                    <td class="data-table__num">{{ mov.quantidade_anterior }}</td>
+                    <td class="data-table__num">
+                      <span
+                        class="qty-delta"
+                        [class.qty-delta--pos]="mov.tipo === 'ENTRADA'"
+                        [class.qty-delta--neg]="mov.tipo === 'SAIDA'"
+                        [class.qty-delta--neutral]="mov.tipo === 'AJUSTE'"
+                      >
+                        {{ formatDelta(mov.tipo, mov.quantidade_movimentada) }}
                       </span>
-                    }
-                  </td>
-                  <td>{{ mov.observacao || '—' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
-
-    <div class="surface-card">
-      <div class="section-heading">
-        <h2>Pedidos de Re-estoque Relacionados</h2>
-        <span>{{ pedidosDoItem().length }} pedido(s)</span>
+                    </td>
+                    <td class="data-table__num">
+                      <strong>{{ mov.quantidade_posterior }}</strong>
+                    </td>
+                    <td>
+                      <span class="data-table__primary">
+                        {{ mov.gerente?.nome_completo ?? '—' }}
+                      </span>
+                      @if (mov.medico) {
+                        <span class="data-table__secondary">
+                          Solic.: {{ mov.medico.nome_completo }}
+                        </span>
+                      }
+                    </td>
+                    <td>{{ mov.observacao || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
+    }
 
-      @if (pedidosService.isLoading()) {
-        <div
-          class="state-box"
-          role="status"
-          aria-live="polite"
-        >
-          <i
-            class="pi pi-spin pi-spinner"
-            aria-hidden="true"
-          ></i>
-          <p>Carregando pedidos...</p>
+    @if (canViewPedidos()) {
+      <div class="surface-card">
+        <div class="section-heading">
+          <h2>Pedidos de Re-estoque Relacionados</h2>
+          <span>{{ pedidosDoItem().length }} pedido(s)</span>
         </div>
-      } @else if (pedidosDoItem().length === 0) {
-        <div class="state-box">
-          <i
-            class="pi pi-inbox"
-            aria-hidden="true"
-          ></i>
-          <p>Nenhum pedido de re-estoque registrado para este medicamento.</p>
-        </div>
-      } @else {
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Data</th>
-                <th scope="col">Quantidade</th>
-                <th scope="col">Status</th>
-                <th scope="col">Solicitante</th>
-                <th scope="col">Justificativa</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (pedido of pedidosDoItem(); track pedido.id) {
+
+        @if (pedidosService.isLoading()) {
+          <div
+            class="state-box"
+            role="status"
+            aria-live="polite"
+          >
+            <i
+              class="pi pi-spin pi-spinner"
+              aria-hidden="true"
+            ></i>
+            <p>Carregando pedidos...</p>
+          </div>
+        } @else if (pedidosDoItem().length === 0) {
+          <div class="state-box">
+            <i
+              class="pi pi-inbox"
+              aria-hidden="true"
+            ></i>
+            <p>Nenhum pedido de re-estoque registrado para este medicamento.</p>
+          </div>
+        } @else {
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
                 <tr>
-                  <td class="data-table__num">{{ pedido.criado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  <td class="data-table__num">
-                    <strong>{{ pedido.quantidade_solicitada }}</strong>
-                  </td>
-                  <td><app-status-badge [status]="pedido.status" /></td>
-                  <td>
-                    {{ pedido.solicitante?.nome_completo ?? pedido.gerente?.nome_completo ?? '—' }}
-                  </td>
-                  <td>{{ pedido.justificativa || '—' }}</td>
+                  <th scope="col">Data</th>
+                  <th scope="col">Quantidade</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Solicitante</th>
+                  <th scope="col">Justificativa</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
+              </thead>
+              <tbody>
+                @for (pedido of pedidosDoItem(); track pedido.id) {
+                  <tr>
+                    <td class="data-table__num">
+                      {{ pedido.criado_em | date: 'dd/MM/yyyy HH:mm' }}
+                    </td>
+                    <td class="data-table__num">
+                      <strong>{{ pedido.quantidade_solicitada }}</strong>
+                    </td>
+                    <td><app-status-badge [status]="pedido.status" /></td>
+                    <td>
+                      {{
+                        pedido.solicitante?.nome_completo ?? pedido.gerente?.nome_completo ?? '—'
+                      }}
+                    </td>
+                    <td>{{ pedido.justificativa || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
 
     <app-medicamento-form-dialog
       [(visible)]="formDialogVisible"

@@ -59,7 +59,7 @@ export class Topbar {
 
   focusMenuTrigger(): void {
     this.hostRef.nativeElement
-      .querySelector<HTMLButtonElement>('.button.topbar__menu-btn, .topbar_menu-btn button')
+      .querySelector<HTMLButtonElement>('button.topbar__menu-btn, .topbar_menu-btn button')
       ?.focus();
   }
 }

@@ -26,6 +26,29 @@ export class ThemeService {
     this.setDarkMode(!this._isDark(), origin);
   }
 
+  toggleFromEvent(event?: MouseEvent): void {
+    const origin = this.resolveOriginFromEvent(event);
+    this.toggleTheme(origin);
+  }
+
+  private resolveOriginFromEvent(event?: MouseEvent): ThemeTransitionOrigin | undefined {
+    if (!event) return undefined;
+
+    if (event.clientX > 0 || event.clientY > 0) {
+      return { x: event.clientX, y: event.clientY };
+    }
+
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    }
+
+    return undefined;
+  }
+
   setDarkMode(dark: boolean, origin?: ThemeTransitionOrigin): void {
     if (dark === this.isDark()) return;
 

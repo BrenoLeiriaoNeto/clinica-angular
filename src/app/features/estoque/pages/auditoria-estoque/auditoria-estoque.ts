@@ -8,15 +8,16 @@ import { Message } from '@openng/optimus-ui/message';
 import { Button } from '@openng/optimus-ui/button';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { DatePipe } from '@angular/common';
+import { InputText } from '@openng/optimus-ui/inputtext';
 
 @Component({
   selector: 'app-auditoria-estoque-page',
   templateUrl: './auditoria-estoque.html',
   styleUrl: '../estoque-pages.scss',
-  imports: [DatePipe, StatusBadge, RouterLink, Message, Button, PageHeader],
+  imports: [InputText, DatePipe, StatusBadge, RouterLink, Message, Button, PageHeader],
 })
 export class AuditoriaEstoquePage implements OnInit {
-  private readonly destroRef = inject(DestroyRef);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly auditoriaService = inject(AuditoriaEstoqueService);
 
   protected readonly searchTerm = signal('');
@@ -59,7 +60,7 @@ export class AuditoriaEstoquePage implements OnInit {
   protected reload(): void {
     this.auditoriaService
       .loadMovimentacoes()
-      .pipe(takeUntilDestroyed(this.destroRef))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ error: () => undefined });
   }
 
