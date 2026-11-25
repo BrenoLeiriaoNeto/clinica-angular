@@ -1,0 +1,291 @@
+<section class="page-container">
+  <app-page-header
+    title="Pedidos de Re-estoque"
+    subtitle="Fluxo de solicitação, aprovação e recebimento atômico de reposições"
+  >
+    <p-button
+      *appHasRole="['MEDICO', 'GERENTE_ESTOQUE']"
+      type="button"
+      label="Nova Solicitação"
+      icon="pi pi-plus"
+      (onClick)="pedidoDialogVisible.set(true)"
+    />
+  </app-page-header>
+
+  <div
+    class="kpi-grid"
+    aria-label="Indicadores de pedidos de re-estoque"
+  >
+    <article
+      class="kpi-card"
+      [class.kpi-card--warn]="pedidosService.pedidosPendentes().length > 0"
+    >
+      <span class="kpi-card__label">Pendentes</span>
+      <strong class="kpi-card__value">{{ pedidosService.pedidosPendentes().length }}</strong>
+      <span class="kpi-card__hint">Aguardando análise da gestão</span>
+    </article>
+
+    <article class="kpi-card kpi-card--info">
+      <span class="kpi-card__label">Aprovados</span>
+      <strong class="kpi-card__value">{{ totalAprovados() }}</strong>
+      <span class="kpi-card__hint">Em trânsito / aguardando entrega</span>
+    </article>
+
+    <article class="kpi-card kpi-card--success">
+      <span class="kpi-card__label">Recebidos</span>
+      <strong class="kpi-card__value">{{ totalRecebidos() }}</strong>
+      <span class="kpi-card__hint">Incorporados ao saldo de estoque</span>
+    </article>
+
+    <article class="kpi-card">
+      <span class="kpi-card__label">Total de Pedidos</span>
+      <strong class="kpi-card__value">{{ pedidosService.pedidos().length }}</strong>
+      <span class="kpi-card__hint">Histórico completo</span>
+    </article>
+  </div>
+
+  @if (pedidosService.error(); as errorMsg) {
+    <div
+      role="alert"
+      aria-live="assertive"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ errorMsg }}
+      </p-message>
+    </div>
+  }
+
+  <div class="surface-card">
+    <div
+      class="filter-bar"
+      role="search"
+      aria-label="Filtros de pedidos de re-estoque"
+    >
+      <div class="filter-bar__search">
+        <label
+          for="pedidos-search"
+          class="sr-only"
+        >
+          Buscar pedido
+        </label>
+        <input
+          pInputText
+          id="pedidos-search"
+          type="search"
+          [value]="searchTerm()"
+          (input)="onSearchInput($event)"
+          placeholder="Buscar por medicamento, SKU, solicitante ou justificativa..."
+        />
+      </div>
+
+      <label
+        for="pedidos-status-filter"
+        class="sr-only"
+      >
+        Filtrar por status do pedido
+      </label>
+      <select
+        id="pedidos-status-filter"
+        class="filter-bar__select"
+        [value]="statusFilter()"
+        (change)="onStatusFilterChange($event)"
+      >
+        <option value="TODOS">Todos os status</option>
+        <option value="PENDENTE">Pendente</option>
+        <option value="APROVADO">Aprovado</option>
+        <option value="RECEBIDO">Recebido</option>
+        <option value="CANCELADO">Cancelado</option>
+      </select>
+
+      <span
+        class="filter-bar__meta"
+        role="status"
+        aria-live="polite"
+      >
+        {{ filteredPedidos().length }} pedido(s) exibido(s)
+      </span>
+    </div>
+
+    @if (pedidosService.isLoading()) {
+      <div
+        class="state-box"
+        role="status"
+        aria-live="polite"
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          aria-hidden="true"
+        ></i>
+        <p>Carregando pedidos de re-estoque...</p>
+      </div>
+    } @else if (filteredPedidos().length === 0) {
+      <div class="state-box">
+        <i
+          class="pi pi-inbox"
+          aria-hidden="true"
+        ></i>
+        <p>Nenhum pedido encontrado para os filtros aplicados.</p>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Medicamento</th>
+              <th scope="col">Qtd. Solicitada</th>
+              <th scope="col">Status</th>
+              <th scope="col">Solicitante / Responsável</th>
+              <th scope="col">Justificativa</th>
+              <th scope="col"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pedido of filteredPedidos(); track pedido.id) {
+              <tr>
+                <td class="data-table__num">{{ pedido.criado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  @if (pedido.medicamento; as med) {
+                    <a
+                      class="data-table__link"
+                      [routerLink]="['/estoque', med.id]"
+                    >
+                      <span class="data-table__primary">{{ med.nome }}</span>
+                      <span class="data-table__secondary">
+                        {{ med.codigo_sku }} • Saldo atual: {{ med.quantidade_atual }}
+                      </span>
+                    </a>
+                  } @else {
+                    <span class="data-table__secondary">{{ pedido.medicamento_id }}</span>
+                  }
+                </td>
+                <td class="data-table__num">
+                  <strong>{{ pedido.quantidade_solicitada }}</strong>
+                  @if (pedido.medicamento) {
+                    <span class="data-table__secondary">
+                      {{ pedido.medicamento.unidade_medida }}
+                    </span>
+                  }
+                </td>
+                <td>
+                  <app-status-badge [status]="pedido.status" />
+                </td>
+                <td>
+                  <span class="data-table__primary">
+                    {{ pedido.solicitante?.nome_completo ?? 'Gestão de Estoque' }}
+                  </span>
+                  @if (pedido.gerente) {
+                    <span class="data-table__secondary">
+                      Resp.: {{ pedido.gerente.nome_completo }}
+                    </span>
+                  }
+                </td>
+                <td>{{ pedido.justificativa || '—' }}</td>
+                <td>
+                  <div
+                    class="data-table__actions"
+                    *appHasRole="'GERENTE_ESTOQUE'"
+                  >
+                    @if (pedido.status === 'PENDENTE') {
+                      <p-button
+                        type="button"
+                        label="Aprovar"
+                        icon="pi pi-thumbs-up"
+                        severity="info"
+                        [text]="true"
+                        size="small"
+                        [disabled]="pedidosService.isSubmitting()"
+                        (onClick)="aprovarPedido(pedido)"
+                      />
+                    }
+                    @if (pedido.status === 'PENDENTE' || pedido.status === 'APROVADO') {
+                      <p-button
+                        type="button"
+                        label="Receber"
+                        icon="pi pi-check-circle"
+                        severity="success"
+                        [text]="true"
+                        size="small"
+                        [disabled]="pedidosService.isSubmitting()"
+                        (onClick)="requestTransition(pedido, 'RECEBIDO')"
+                      />
+                      <p-button
+                        type="button"
+                        icon="pi pi-times"
+                        severity="danger"
+                        [text]="true"
+                        size="small"
+                        [disabled]="pedidosService.isSubmitting()"
+                        ariaLabel="Cancelar pedido"
+                        (onClick)="requestTransition(pedido, 'CANCELADO')"
+                      />
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>
+
+<app-pedido-form-dialog
+  [(visible)]="pedidoDialogVisible"
+  [medicamentos]="medicamentosService.medicamentos()"
+/>
+
+<p-dialog
+  [visible]="pendingTransition() !== null"
+  (visibleChange)="!$event && cancelPendingTransition()"
+  [header]="
+    pendingTransition()?.novoStatus === 'RECEBIDO'
+      ? 'Confirmar Recebimento de Estoque'
+      : 'Cancelar Pedido de Re-estoque'
+  "
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '29rem', maxWidth: '94vw' }"
+>
+  @if (pendingTransition(); as pending) {
+    <div class="confirm-dialog">
+      @if (pending.novoStatus === 'RECEBIDO') {
+        <p>
+          Confirmar o recebimento de
+          <strong>{{ pending.pedido.quantidade_solicitada }} unidade(s)</strong>
+          de
+          <strong>{{ pending.pedido.medicamento?.nome ?? 'este medicamento' }}</strong>
+          ? O saldo será incrementado atomicamente e um registro imutável será gravado na auditoria.
+        </p>
+      } @else {
+        <p>
+          Confirma o cancelamento do pedido de
+          <strong>{{ pending.pedido.medicamento?.nome ?? 're-estoque' }}</strong>
+          ? Esta ação encerra o pedido sem alterar o saldo em estoque.
+        </p>
+      }
+
+      <div class="confirm-dialog__actions">
+        <p-button
+          type="button"
+          label="Voltar"
+          severity="secondary"
+          [text]="true"
+          [disabled]="pedidosService.isSubmitting()"
+          (onClick)="cancelPendingTransition()"
+        />
+        <p-button
+          type="button"
+          [label]="pending.novoStatus === 'RECEBIDO' ? 'Confirmar Recebimento' : 'Cancelar Pedido'"
+          [severity]="pending.novoStatus === 'RECEBIDO' ? 'success' : 'danger'"
+          [loading]="pedidosService.isSubmitting()"
+          (onClick)="confirmPendingTransition()"
+        />
+      </div>
+    </div>
+  }
+</p-dialog>
