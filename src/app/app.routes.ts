@@ -67,9 +67,7 @@ export const routes: Routes = [
           description: 'Monitoramento de medicamentos, alertas de reposição e solicitações.',
         },
         loadChildren: () =>
-          import('./features/estoque/estoque.routes').then(
-            (m) => m.estoqueRoutes
-          ),
+          import('./features/estoque/estoque.routes').then((m) => m.estoqueRoutes),
       },
       {
         path: 'pedidos-estoque',
@@ -81,9 +79,9 @@ export const routes: Routes = [
           description: 'Aprovação e recebimento de pedidos de compra de medicamentos.',
         },
         loadComponent: () =>
-        import('./features/estoque/pages/pedidos-estoque/pedidos-estoque').then(
-          (m) => m.PedidosEstoquePage,
-        )  ,
+          import('./features/estoque/pages/pedidos-estoque/pedidos-estoque').then(
+            (m) => m.PedidosEstoquePage,
+          ),
       },
       {
         path: 'auditoria-estoque',

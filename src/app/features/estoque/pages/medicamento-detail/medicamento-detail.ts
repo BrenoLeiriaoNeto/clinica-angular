@@ -33,7 +33,7 @@ import { HasRoleDirective } from '../../../../shared/directives/has-role.directi
     PageHeader,
   ],
 })
-export class MedicamentoDetail implements OnInit {
+export class MedicamentoDetailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
 
