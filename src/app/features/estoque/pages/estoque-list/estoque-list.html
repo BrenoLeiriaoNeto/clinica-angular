@@ -1,0 +1,303 @@
+<section class="page-container">
+  <app-page-header
+    title="Controle de Estoque"
+    subtitle="Catálogo de medicamentos, alertas de reposição e movimentação auditada"
+  >
+    <p-button
+      *appHasRole="['MEDICO', 'GERENTE_ESTOQUE']"
+      type="button"
+      label="Solicitar Re-estoque"
+      icon="pi pi-shopping-cart"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="openPedidoDialog()"
+    />
+    <p-button
+      *appHasRole="'GERENTE_ESTOQUE'"
+      type="button"
+      label="Novo Medicamento"
+      icon="pi pi-plus"
+      (onClick)="openCreateDialog()"
+    />
+  </app-page-header>
+
+  <div
+    class="kpi-grid"
+    aria-label="Indicadores de estoque"
+  >
+    <article class="kpi-card kpi-card--info">
+      <span class="kpi-card__label">Medicamentos Ativos</span>
+      <strong class="kpi-card__value">{{ medicamentosService.medicamentosAtivos().length }}</strong>
+      <span class="kpi-card__hint">{{ totalInativos() }} descontinuado(s)</span>
+    </article>
+
+    <article
+      class="kpi-card"
+      [class.kpi-card--danger]="medicamentosService.itensEmReposicao().length > 0"
+      [class.kpi-card--success]="medicamentosService.itensEmReposicao().length === 0"
+    >
+      <span class="kpi-card__label">Em Alerta de Reposição</span>
+      <strong class="kpi-card__value">{{ medicamentosService.itensEmReposicao().length }}</strong>
+      <span class="kpi-card__hint">Saldo abaixo do mínimo configurado</span>
+    </article>
+
+    <article class="kpi-card kpi-card--success">
+      <span class="kpi-card__label">Unidades em Estoque</span>
+      <strong class="kpi-card__value">{{ medicamentosService.totalUnidadesEmEstoque() }}</strong>
+      <span class="kpi-card__hint">Somatório dos itens ativos</span>
+    </article>
+  </div>
+
+  @if (medicamentosService.error(); as errorMsg) {
+    <div
+      role="alert"
+      aria-live="assertive"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ errorMsg }}
+      </p-message>
+    </div>
+  }
+
+  <div class="surface-card">
+    <div
+      class="filter-bar"
+      role="search"
+      aria-label="Filtros do catálogo de medicamentos"
+    >
+      <div class="filter-bar__search">
+        <label
+          for="estoque-search"
+          class="sr-only"
+        >
+          Buscar medicamento
+        </label>
+        <input
+          pInputText
+          id="estoque-search"
+          type="search"
+          [value]="searchTerm()"
+          (input)="onSearchInput($event)"
+          placeholder="Buscar por SKU, nome comercial ou princípio ativo..."
+        />
+      </div>
+
+      <label
+        for="estoque-status-filter"
+        class="sr-only"
+      >
+        Filtrar por situação
+      </label>
+      <select
+        id="estoque-status-filter"
+        class="filter-bar__select"
+        [value]="statusFilter()"
+        (change)="onStatusFilterChange($event)"
+      >
+        <option value="TODOS">Todas as situações</option>
+        <option value="NORMAL">Estoque Normal</option>
+        <option value="REPOSICAO">Reposição Necessária</option>
+      </select>
+
+      <label class="filter-bar__checkbox">
+        <input
+          type="checkbox"
+          [checked]="showInactive()"
+          (change)="onShowInactiveChange($event)"
+        />
+        Exibir descontinuados
+      </label>
+
+      <span
+        class="filter-bar__meta"
+        role="status"
+        aria-live="polite"
+      >
+        {{ filteredMedicamentos().length }} item(ns) exibido(s)
+      </span>
+    </div>
+
+    @if (medicamentosService.isLoading()) {
+      <div
+        class="state-box"
+        role="status"
+        aria-live="polite"
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          aria-hidden="true"
+        ></i>
+        <p>Carregando catálogo de medicamentos...</p>
+      </div>
+    } @else if (filteredMedicamentos().length === 0) {
+      <div class="state-box">
+        <i
+          class="pi pi-box"
+          aria-hidden="true"
+        ></i>
+        <p>Nenhum medicamento encontrado para os filtros aplicados.</p>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Medicamento</th>
+              <th scope="col">Unidade</th>
+              <th scope="col">Saldo / Mínimo</th>
+              <th scope="col">Situação</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (med of filteredMedicamentos(); track med.id) {
+              <tr
+                [class.data-table__row--alert]="med.ativo && med.status === 'REPOSICAO'"
+                [class.data-table__row--inactive]="!med.ativo"
+              >
+                <td>
+                  <span class="data-table__code">{{ med.codigo_sku }}</span>
+                </td>
+                <td>
+                  <a
+                    class="data-table__link"
+                    [routerLink]="[med.id]"
+                  >
+                    <span class="data-table__primary">{{ med.nome }}</span>
+                    <span class="data-table__secondary">{{ med.principio_ativo }}</span>
+                  </a>
+                </td>
+                <td>{{ med.unidade_medida }}</td>
+                <td class="data-table__num">
+                  <strong>{{ med.quantidade_atual }}</strong>
+                  / {{ med.estoque_minimo }}
+                </td>
+                <td>
+                  <app-status-badge [status]="med.status" />
+                </td>
+                <td>
+                  <app-status-badge [status]="med.ativo ? 'ATIVO' : 'INATIVO'" />
+                </td>
+                <td>
+                  <div class="data-table__actions">
+                    <p-button
+                      type="button"
+                      icon="pi pi-eye"
+                      severity="secondary"
+                      [text]="true"
+                      size="small"
+                      [routerLink]="[med.id]"
+                      [ariaLabel]="'Ver detalhes de ' + med.nome"
+                    />
+                    <p-button
+                      *appHasRole="'GERENTE_ESTOQUE'"
+                      type="button"
+                      icon="pi pi-arrow-right-arrow-left"
+                      severity="info"
+                      [text]="true"
+                      size="small"
+                      [disabled]="!med.ativo"
+                      [ariaLabel]="'Movimentar saldo de ' + med.nome"
+                      (onClick)="openMovimentacaoDialog(med)"
+                    />
+                    <p-button
+                      *appHasRole="['MEDICO', 'GERENTE_ESTOQUE']"
+                      type="button"
+                      icon="pi pi-shopping-cart"
+                      severity="warn"
+                      [text]="true"
+                      size="small"
+                      [disabled]="!med.ativo"
+                      [ariaLabel]="'Solicitar re-estoque de ' + med.nome"
+                      (onClick)="openPedidoDialog(med)"
+                    />
+                    <p-button
+                      *appHasRole="'GERENTE_ESTOQUE'"
+                      type="button"
+                      icon="pi pi-pencil"
+                      severity="secondary"
+                      [text]="true"
+                      size="small"
+                      [ariaLabel]="'Editar ' + med.nome"
+                      (onClick)="openEditDialog(med)"
+                    />
+                    <p-button
+                      *appHasRole="'GERENTE_ESTOQUE'"
+                      type="button"
+                      [icon]="med.ativo ? 'pi pi-ban' : 'pi pi-refresh'"
+                      [severity]="med.ativo ? 'danger' : 'success'"
+                      [text]="true"
+                      size="small"
+                      [ariaLabel]="(med.ativo ? 'Descontinuar ' : 'Reativar ') + med.nome"
+                      (onClick)="requestToggleAtivo(med)"
+                    />
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>
+
+<app-medicamento-form-dialog
+  [(visible)]="formDialogVisible"
+  [medicamento]="selectedMedicamento()"
+/>
+
+<app-movimentacao-dialog
+  [(visible)]="movDialogVisible"
+  [medicamento]="selectedMedicamento()"
+/>
+
+<app-pedido-form-dialog
+  [(visible)]="pedidoDialogVisible"
+  [medicamentos]="medicamentosService.medicamentos()"
+  [preselectedMedicamentoId]="preselectedPedidoMedId()"
+/>
+
+<p-dialog
+  [visible]="pendingToggleMedicamento() !== null"
+  (visibleChange)="!$event && cancelToggleAtivo()"
+  [header]="pendingToggleMedicamento()?.ativo ? 'Descontinuar Medicamento' : 'Reativar Medicamento'"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '28rem', maxWidth: '94vw' }"
+>
+  @if (pendingToggleMedicamento(); as med) {
+    <div class="confirm-dialog">
+      <p>
+        Confirma {{ med.ativo ? 'descontinuar' : 'reativar' }}
+        <strong>{{ med.codigo_sku }} - {{ med.nome }}</strong>
+        ?
+        @if (med.ativo) {
+          Itens descontinuados deixam de aceitar novas movimentações e pedidos de re-estoque.
+        }
+      </p>
+      <div class="confirm-dialog__actions">
+        <p-button
+          type="button"
+          label="Cancelar"
+          severity="secondary"
+          [text]="true"
+          [disabled]="medicamentosService.isSubmitting()"
+          (onClick)="cancelToggleAtivo()"
+        />
+        <p-button
+          type="button"
+          [label]="med.ativo ? 'Descontinuar' : 'Reativar'"
+          [severity]="med.ativo ? 'danger' : 'success'"
+          [loading]="medicamentosService.isSubmitting()"
+          (onClick)="confirmToggleAtivo()"
+        />
+      </div>
+    </div>
+  }
+</p-dialog>

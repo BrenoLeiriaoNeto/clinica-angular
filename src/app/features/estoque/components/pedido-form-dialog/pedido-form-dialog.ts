@@ -80,7 +80,7 @@ export class PedidoFormDialog {
     if (this.pedidoForm().invalid()) {
       this.pedidoForm.medicamento_id().markAsTouched();
       this.pedidoForm.justificativa().markAsTouched();
-      this.pedidoForm.quantidade_solicitada().markAsDirty();
+      this.pedidoForm.quantidade_solicitada().markAsTouched();
       return;
     }
 
