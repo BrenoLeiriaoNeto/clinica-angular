@@ -30,8 +30,31 @@ export class Topbar {
     return name ? name.charAt(0).toUpperCase() : 'U';
   });
 
-  protected toggleTheme(): void {
-    this.themeService.toggleTheme();
+  protected toggleTheme(event?: MouseEvent): void {
+    const origin = this.resolveThemeOrigin(event);
+    if (origin) {
+      this.themeService.toggleTheme(origin);
+    } else {
+      this.themeService.toggleTheme();
+    }
+  }
+
+  private resolveThemeOrigin(event?: MouseEvent): { x: number; y: number } | undefined {
+    if (!event) return undefined;
+
+    if (event.clientX > 0 || event.clientY > 0) {
+      return { x: event.clientX, y: event.clientY };
+    }
+
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) {
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+    }
+
+    return undefined;
   }
 
   focusMenuTrigger(): void {

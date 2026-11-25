@@ -1,11 +1,13 @@
 /* You can add global styles to this file, and also import other style files */
-@use '@openng/icons/openng-icons.css';
-@use 'styles/variables';
-@use 'styles/reset';
-@use 'styles/layout';
-@use 'styles/utilities';
+@use "@openng/icons/openng-icons.css";
+@use "styles/variables";
+@use "styles/reset";
+@use "styles/layout";
+@use "styles/utilities";
 
 :root {
+  color-scheme: light;
+
   --app-surface-ground: #f1f5f9;
   --app-surface-card: #ffffff;
   --app-surface-subtle: #f8fafc;
@@ -16,7 +18,8 @@
 
   --app-sidebar-bg: #ffffff;
   --app-sidebar-border: #cbd5e1;
-  --app-sidebar-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.1), 0 4px 10px -4px rgba(15, 23, 42, 0.05);
+  --app-sidebar-shadow:
+    0 12px 28px -8px rgba(15, 23, 42, 0.1), 0 4px 10px -4px rgba(15, 23, 42, 0.05);
   --app-sidebar-profile-bg: #f8fafc;
   --app-sidebar-profile-border: #e2e8f0;
   --app-sidebar-text: #0f172a;
@@ -29,9 +32,18 @@
   --app-sidebar-link-active-text: #0c4a6e;
   --app-sidebar-link-active-accent: #0284c7;
   --app-sidebar-divider: #e2e8f0;
+
+  --app-table-header-bg: #f8fafc;
+  --app-table-row-hover: rgba(2, 132, 199, 0.06);
+  --app-table-row-alert: rgba(220, 38, 38, 0.06);
+  --app-status-danger: #dc2626;
+  --app-status-warn: #ea580c;
+  --app-status-success: #16a34a;
 }
 
 :root.app-dark {
+  color-scheme: dark;
+
   --app-surface-ground: #090d16;
   --app-surface-card: #111827;
   --app-surface-subtle: #1e293b;
@@ -42,7 +54,8 @@
 
   --app-sidebar-bg: #0f172a;
   --app-sidebar-border: rgba(148, 163, 184, 0.18);
-  --app-sidebar-shadow: 0 16px 32px -8px rgba(15, 23, 42, 0.45), 0 4px 12px -4px rgba(15, 23, 42, 0.3);
+  --app-sidebar-shadow:
+    0 16px 32px -8px rgba(15, 23, 42, 0.45), 0 4px 12px -4px rgba(15, 23, 42, 0.3);
   --app-sidebar-profile-bg: rgba(30, 41, 59, 0.85);
   --app-sidebar-profile-border: rgba(148, 163, 184, 0.16);
   --app-sidebar-text: #f8fafc;
@@ -55,4 +68,62 @@
   --app-sidebar-link-active-text: #ffffff;
   --app-sidebar-link-active-accent: #38bdf8;
   --app-sidebar-divider: rgba(148, 163, 184, 0.16);
+
+  --app-table-header-bg: #1e293b;
+  --app-table-row-hover: rgba(56, 189, 248, 0.08);
+  --app-table-row-alert: rgba(248, 113, 113, 0.12);
+  --app-status-danger: #f87171;
+  --app-status-warn: #fb923c;
+  --app-status-success: #4ade80;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.35s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root.theme-transition-radial::view-transition-old(root),
+:root.theme-transition-radial::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root.theme-transition-radial::view-transition-old(root) {
+  z-index: 1;
+}
+
+:root.theme-transition-radial::view-transition-new(root) {
+  z-index: 9999;
+  animation: theme-radial-reveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes theme-radial-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+}
+
+/* Fallback CSS caso o browser não suporte View Transitions */
+:root.theme-transition-fallback,
+:root.theme-transition-fallback body,
+:root.theme-transition-fallback .surface-card,
+:root.theme-transition-fallback .kpi-card,
+:root.theme-transition-fallback .topbar__pill {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  :root.theme-transition-radial::view-transition-new(root) {
+    animation: none !important;
+  }
 }

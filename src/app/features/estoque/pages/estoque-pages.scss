@@ -31,18 +31,18 @@
   }
 
   &--danger {
-    border-left: 4px solid $triage-emergency;
+    border-left: 4px solid var(--app-status-danger);
 
     .kpi-card__value {
-      color: $triage-emergency;
+      color: var(--app-status-danger);
     }
   }
 
   &--warn {
-    border-left: 4px solid $triage-very-urgent;
+    border-left: 4px solid var(--app-status-warn);
 
     .kpi-card__value {
-      color: $triage-very-urgent;
+      color: var(--app-status-warn);
     }
   }
 
@@ -51,7 +51,7 @@
   }
 
   &--success {
-    border-left: 4px solid $triage-standard;
+    border-left: 4px solid var(--app-status-success);
   }
 }
 
@@ -85,6 +85,11 @@
       outline: 2px solid $primary-color;
       outline-offset: 1px;
       border-color: $primary-color;
+    }
+
+    option {
+      background: $surface-card;
+      color: $text-color;
     }
   }
 
@@ -137,7 +142,7 @@
   }
 
   thead th {
-    background: $surface-ground;
+    background: var(--app-table-header-bg);
     color: $text-muted;
     font-size: 0.78rem;
     font-weight: 700;
@@ -154,12 +159,12 @@
     }
 
     &:hover {
-      background: color-mix(in srgb, var(--p-primary-color, #0ea5e9) 5%, transparent);
+      background: var(--app-table-row-hover);
     }
   }
 
   &__row--alert {
-    background: color-mix(in srgb, #dc2626 5%, transparent);
+    background: var(--app-table-row-alert);
   }
 
   &__row--inactive {
@@ -216,11 +221,11 @@
   font-variant-numeric: tabular-nums;
 
   &--pos {
-    color: $triage-standard;
+    color: var(--app-status-success);
   }
 
   &--neg {
-    color: $triage-emergency;
+    color: var(--app-status-danger);
   }
 
   &--neutral {
