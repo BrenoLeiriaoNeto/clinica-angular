@@ -7,12 +7,11 @@ import { form, minLength, required, validate, FormField } from '@angular/forms/s
 import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { Textarea } from '@openng/optimus-ui/textarea';
 import { Button } from '@openng/optimus-ui/button';
 
 @Component({
   selector: 'app-pedido-form-dialog',
-  imports: [Dialog, Message, FormField, InputText, Textarea, Button],
+  imports: [Dialog, Message, FormField, InputText, Button],
   templateUrl: './pedido-form-dialog.html',
   styleUrl: '../estoque-dialog.scss',
 })

@@ -7,12 +7,25 @@
   [style]="{ width: '34rem', maxWidth: '94vw' }"
 >
   @if (submitError()) {
-    <div role="alert" aria-live="assertive" class="mb-md">
-      <p-message severity="error" styleClass="w-full"> {{submitError()! }} </p-message>
+    <div
+      role="alert"
+      aria-live="assertive"
+      class="mb-md"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ submitError()! }}
+      </p-message>
     </div>
   }
 
-  <form (submit)="onSubmit($event)" class="dialog-form" novalidate>
+  <form
+    (submit)="onSubmit($event)"
+    class="dialog-form"
+    novalidate
+  >
     <div class="dialog-form__row">
       <div class="dialog-form__field">
         <label for="med-sku">Código SKU</label>
@@ -22,11 +35,18 @@
           type="text"
           [formField]="medForm.codigo_sku"
           placeholder="Ex: MED-006"
-          [attr.aria-invalid]="medForm.codigo_sku().touched() && medForm.codigo_sku().invalid() ? 'true' : null"
-          [attr.aria-describedby]="medForm.codigo_sku().touched() && medForm.codigo_sku().invalid() ? 'med-sku-err' : null"
+          [attr.aria-invalid]="
+            medForm.codigo_sku().touched() && medForm.codigo_sku().invalid() ? 'true' : null
+          "
+          [attr.aria-describedby]="
+            medForm.codigo_sku().touched() && medForm.codigo_sku().invalid() ? 'med-sku-err' : null
+          "
         />
         @if (medForm.codigo_sku().touched() && medForm.codigo_sku().invalid()) {
-          <span id="med-sku-err" class="dialog-form__error">
+          <span
+            id="med-sku-err"
+            class="dialog-form__error"
+          >
             {{ medForm.codigo_sku().errors()[0]?.message }}
           </span>
         }
@@ -40,11 +60,20 @@
           type="text"
           [formField]="medForm.unidade_medida"
           placeholder="Ex: Caixa c/ 30 comp"
-          [attr.aria-invalid]="medForm.unidade_medida().touched() && medForm.unidade_medida().invalid() ? 'true' : null"
-          [attr.aria-describedby]="medForm.unidade_medida().touched() && medForm.unidade_medida().invalid() ? 'med-unidade-err' : null"
+          [attr.aria-invalid]="
+            medForm.unidade_medida().touched() && medForm.unidade_medida().invalid() ? 'true' : null
+          "
+          [attr.aria-describedby]="
+            medForm.unidade_medida().touched() && medForm.unidade_medida().invalid()
+              ? 'med-unidade-err'
+              : null
+          "
         />
         @if (medForm.unidade_medida().touched() && medForm.unidade_medida().invalid()) {
-          <span id="med-unidade-err" class="dialog-form__error">
+          <span
+            id="med-unidade-err"
+            class="dialog-form__error"
+          >
             {{ medForm.unidade_medida().errors()[0]?.message }}
           </span>
         }
@@ -60,10 +89,15 @@
         [formField]="medForm.nome"
         placeholder="Ex: Paracetamol 750mg"
         [attr.aria-invalid]="medForm.nome().touched() && medForm.nome().invalid() ? 'true' : null"
-        [attr.aria-describedby]="medForm.nome().touched() && medForm.nome().invalid() ? 'med-nome-err' : null"
+        [attr.aria-describedby]="
+          medForm.nome().touched() && medForm.nome().invalid() ? 'med-nome-err' : null
+        "
       />
       @if (medForm.nome().touched() && medForm.nome().invalid()) {
-        <span id="med-nome-err" class="dialog-form__error">
+        <span
+          id="med-nome-err"
+          class="dialog-form__error"
+        >
           {{ medForm.nome().errors()[0]?.message }}
         </span>
       }
@@ -77,11 +111,20 @@
         type="text"
         [formField]="medForm.principio_ativo"
         placeholder="Ex: Paracetamol"
-        [attr.aria-invalid]="medForm.principio_ativo().touched() && medForm.principio_ativo().invalid() ? 'true' : null"
-        [attr.aria-describedby]="medForm.principio_ativo().touched() && medForm.principio_ativo().invalid() ? 'med-principio-err' : null"
+        [attr.aria-invalid]="
+          medForm.principio_ativo().touched() && medForm.principio_ativo().invalid() ? 'true' : null
+        "
+        [attr.aria-describedby]="
+          medForm.principio_ativo().touched() && medForm.principio_ativo().invalid()
+            ? 'med-principio-err'
+            : null
+        "
       />
       @if (medForm.principio_ativo().touched() && medForm.principio_ativo().invalid()) {
-        <span id="med-principio-err" class="dialog-form__error">
+        <span
+          id="med-principio-err"
+          class="dialog-form__error"
+        >
           {{ medForm.principio_ativo().errors()[0]?.message }}
         </span>
       }
@@ -95,15 +138,27 @@
           id="med-saldo"
           type="number"
           step="1"
-          min="0"
           [formField]="medForm.quantidade_atual"
-          [attr.aria-invalid]="medForm.quantidade_atual().touched() && medForm.quantidade_atual().invalid() ? 'true' : null"
-          [attr.aria-describedby]="medForm.quantidade_atual().touched() && medForm.quantidade_atual().invalid() ? 'med-saldo-err' : null"
+          [attr.aria-invalid]="
+            medForm.quantidade_atual().touched() && medForm.quantidade_atual().invalid()
+              ? 'true'
+              : null
+          "
+          [attr.aria-describedby]="
+            medForm.quantidade_atual().touched() && medForm.quantidade_atual().invalid()
+              ? 'med-saldo-err'
+              : null
+          "
         />
         @if (isEditMode()) {
-          <span class="dialog-form__hint">Para alterar o saldo, utilize a movimentação auditada.</span>
+          <span class="dialog-form__hint">
+            Para alterar o saldo, utilize a movimentação auditada.
+          </span>
         } @else if (medForm.quantidade_atual().touched() && medForm.quantidade_atual().invalid()) {
-          <span id="med-saldo-err" class="dialog-form__error">
+          <span
+            id="med-saldo-err"
+            class="dialog-form__error"
+          >
             {{ medForm.quantidade_atual().errors()[0]?.message }}
           </span>
         }
@@ -116,13 +171,21 @@
           id="med-minimo"
           type="number"
           step="1"
-          min="0"
           [formField]="medForm.estoque_minimo"
-          [attr.aria-invalid]="medForm.estoque_minimo().touched() && medForm.estoque_minimo().invalid() ? 'true' : null"
-          [attr.aria-describedby]="medForm.estoque_minimo().touched() && medForm.estoque_minimo().invalid() ? 'med-minimo-err' : null"
+          [attr.aria-invalid]="
+            medForm.estoque_minimo().touched() && medForm.estoque_minimo().invalid() ? 'true' : null
+          "
+          [attr.aria-describedby]="
+            medForm.estoque_minimo().touched() && medForm.estoque_minimo().invalid()
+              ? 'med-minimo-err'
+              : null
+          "
         />
         @if (medForm.estoque_minimo().touched() && medForm.estoque_minimo().invalid()) {
-          <span id="med-minimo-err" class="dialog-form__error">
+          <span
+            id="med-minimo-err"
+            class="dialog-form__error"
+          >
             {{ medForm.estoque_minimo().errors()[0]?.message }}
           </span>
         }

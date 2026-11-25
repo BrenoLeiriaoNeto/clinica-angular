@@ -4,16 +4,29 @@
   header="Movimentar Saldo de Estoque"
   [modal]="true"
   [draggable]="false"
-  [style]="{ width: '32rem', maxWidth: '94vw'}"
+  [style]="{ width: '32rem', maxWidth: '94vw' }"
 >
   @if (medicamento(); as med) {
     @if (submitError()) {
-      <div role="alert" aria-live="assertive" class="mb-md">
-        <p-message severity="error" styleClass="w-full">{{ submitError()! }}</p-message>
+      <div
+        role="alert"
+        aria-live="assertive"
+        class="mb-md"
+      >
+        <p-message
+          severity="error"
+          styleClass="w-full"
+        >
+          {{ submitError()! }}
+        </p-message>
       </div>
     }
 
-    <form (submit)="onSubmit($event)" class="dialog-form" novalidate>
+    <form
+      (submit)="onSubmit($event)"
+      class="dialog-form"
+      novalidate
+    >
       <div class="dialog-form__preview">
         <div>
           <strong>{{ med.codigo_sku }} - {{ med.nome }}</strong>
@@ -27,7 +40,11 @@
       <div class="dialog-form__row">
         <div class="dialog-form__field">
           <label for="mov-tipo">Tipo de Operação</label>
-          <select id="mov-tipo" class="dialog-form__select" [formField]="movForm.tipo">
+          <select
+            id="mov-tipo"
+            class="dialog-form__select"
+            [formField]="movForm.tipo"
+          >
             <option value="ENTRADA">Entrada (+)</option>
             <option value="SAIDA">Saída (-)</option>
             <option value="AJUSTE">Ajuste de Inventário (=)</option>
@@ -41,13 +58,21 @@
             id="mov-qtd"
             type="number"
             step="1"
-            [min]="formModel().tipo === 'AJUSTE' ? 0 : 1"
             [formField]="movForm.quantidade"
-            [attr.aria-invalid]="movForm.quantidade().touched() && movForm.quantidade().invalid() ? 'true' : null"
-            [attr.aria-describedby]="movForm.quantidade().touched() && movForm.quantidade().invalid() ? 'mov-qtd-err' : null"
+            [attr.aria-invalid]="
+              movForm.quantidade().touched() && movForm.quantidade().invalid() ? 'true' : null
+            "
+            [attr.aria-describedby]="
+              movForm.quantidade().touched() && movForm.quantidade().invalid()
+                ? 'mov-qtd-err'
+                : null
+            "
           />
           @if (movForm.quantidade().touched() && movForm.quantidade().invalid()) {
-            <span id="mov-qtd-err" class="dialog-form__error">
+            <span
+              id="mov-qtd-err"
+              class="dialog-form__error"
+            >
               {{ movForm.quantidade().errors()[0]?.message }}
             </span>
           }
@@ -55,9 +80,13 @@
       </div>
 
       @if (saldoPrevisto() !== null && movForm.quantidade().valid()) {
-        <div class="dialog-form__preview" aria-live="polite">
+        <div
+          class="dialog-form__preview"
+          aria-live="polite"
+        >
           <span>
-            Saldo após operação: <strong>{{ saldoPrevisto() }}</strong>
+            Saldo após operação:
+            <strong>{{ saldoPrevisto() }}</strong>
           </span>
           <app-status-badge [status]="statusPrevisto()" />
         </div>
@@ -66,7 +95,7 @@
       <div class="dialog-form__field">
         <label for="mov-obs">Observação / Justificativa</label>
         <textarea
-          pTextarea
+          class="dialog-form__textarea"
           id="mov-obs"
           rows="3"
           [formField]="movForm.observacao"

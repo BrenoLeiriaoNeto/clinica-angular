@@ -8,12 +8,11 @@ import { Dialog } from '@openng/optimus-ui/dialog';
 import { Message } from '@openng/optimus-ui/message';
 import { StatusBadge } from '../../../../shared/components/status-badge/status-badge';
 import { InputText } from '@openng/optimus-ui/inputtext';
-import { Textarea } from '@openng/optimus-ui/textarea';
 import { Button } from '@openng/optimus-ui/button';
 
 @Component({
   selector: 'app-movimentacao-dialog',
-  imports: [Dialog, Message, StatusBadge, FormField, InputText, Textarea, Button],
+  imports: [Dialog, Message, StatusBadge, FormField, InputText, Button],
   templateUrl: './movimentacao-dialog.html',
   styleUrl: '../estoque-dialog.scss',
 })

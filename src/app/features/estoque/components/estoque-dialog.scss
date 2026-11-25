@@ -1,4 +1,4 @@
-@use 'variables' as *;
+@use "variables" as *;
 
 .dialog-form {
   display: flex;
@@ -28,7 +28,8 @@
     }
   }
 
-  &__select {
+  &__select,
+  &__textarea {
     width: 100%;
     padding: 0.65rem 0.75rem;
     border-radius: $radius-md;
@@ -48,6 +49,11 @@
       opacity: 0.6;
       cursor: not-allowed;
     }
+  }
+
+  &__textarea {
+    resize: vertical;
+    min-height: 5rem;
   }
 
   &__error {
