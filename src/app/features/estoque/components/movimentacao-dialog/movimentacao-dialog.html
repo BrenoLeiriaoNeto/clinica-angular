@@ -1,0 +1,125 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  header="Movimentar Saldo de Estoque"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '32rem', maxWidth: '94vw' }"
+>
+  @if (medicamento(); as med) {
+    @if (submitError()) {
+      <div
+        role="alert"
+        aria-live="assertive"
+        class="mb-md"
+      >
+        <p-message
+          severity="error"
+          styleClass="w-full"
+        >
+          {{ submitError()! }}
+        </p-message>
+      </div>
+    }
+
+    <form
+      (submit)="onSubmit($event)"
+      class="dialog-form"
+      novalidate
+    >
+      <div class="dialog-form__preview">
+        <div>
+          <strong>{{ med.codigo_sku }} - {{ med.nome }}</strong>
+          <div class="dialog-form__hint">
+            Saldo atual: {{ med.quantidade_atual }} • Mínimo: {{ med.estoque_minimo }}
+          </div>
+        </div>
+        <app-status-badge [status]="med.status" />
+      </div>
+
+      <div class="dialog-form__row">
+        <div class="dialog-form__field">
+          <label for="mov-tipo">Tipo de Operação</label>
+          <select
+            id="mov-tipo"
+            class="dialog-form__select"
+            [formField]="movForm.tipo"
+          >
+            <option value="ENTRADA">Entrada (+)</option>
+            <option value="SAIDA">Saída (-)</option>
+            <option value="AJUSTE">Ajuste de Inventário (=)</option>
+          </select>
+        </div>
+
+        <div class="dialog-form__field">
+          <label for="mov-qtd">{{ quantidadeLabel() }}</label>
+          <input
+            pInputText
+            id="mov-qtd"
+            type="number"
+            step="1"
+            [formField]="movForm.quantidade"
+            [attr.aria-invalid]="
+              movForm.quantidade().touched() && movForm.quantidade().invalid() ? 'true' : null
+            "
+            [attr.aria-describedby]="
+              movForm.quantidade().touched() && movForm.quantidade().invalid()
+                ? 'mov-qtd-err'
+                : null
+            "
+          />
+          @if (movForm.quantidade().touched() && movForm.quantidade().invalid()) {
+            <span
+              id="mov-qtd-err"
+              class="dialog-form__error"
+            >
+              {{ movForm.quantidade().errors()[0]?.message }}
+            </span>
+          }
+        </div>
+      </div>
+
+      @if (saldoPrevisto() !== null && movForm.quantidade().valid()) {
+        <div
+          class="dialog-form__preview"
+          aria-live="polite"
+        >
+          <span>
+            Saldo após operação:
+            <strong>{{ saldoPrevisto() }}</strong>
+          </span>
+          <app-status-badge [status]="statusPrevisto()" />
+        </div>
+      }
+
+      <div class="dialog-form__field">
+        <label for="mov-obs">Observação / Justificativa</label>
+        <textarea
+          class="dialog-form__textarea"
+          id="mov-obs"
+          rows="3"
+          [formField]="movForm.observacao"
+          placeholder="Ex: Dispensação ambulatorial, conferência de lote ou nota fiscal..."
+        ></textarea>
+      </div>
+
+      <div class="dialog-form__actions">
+        <p-button
+          type="button"
+          label="Cancelar"
+          severity="secondary"
+          [text]="true"
+          [disabled]="isSubmitting()"
+          (onClick)="onClose()"
+        />
+        <p-button
+          type="submit"
+          label="Confirmar Movimentação"
+          icon="pi pi-check"
+          [loading]="isSubmitting()"
+          [disabled]="movForm().invalid() || isSubmitting()"
+        />
+      </div>
+    </form>
+  }
+</p-dialog>

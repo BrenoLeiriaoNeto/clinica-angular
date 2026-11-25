@@ -5,8 +5,16 @@ import { AuthService } from '../auth/auth.service';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 
+function isSupabaseOrigin(requestUrl: string, supabaseUrl: string): boolean {
+  try {
+    return new URL(requestUrl).origin === new URL(supabaseUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 export const supabaseInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(environment.supabaseUrl)) {
+  if (!isSupabaseOrigin(req.url, environment.supabaseUrl)) {
     return next(req);
   }
 

@@ -1,0 +1,197 @@
+<section class="page-container">
+  <app-page-header
+    title="Auditoria de Estoque"
+    subtitle="Trilha imutável (append-only) de todas as entradas, saídas e ajustes de inventário"
+  >
+    <p-button
+      type="button"
+      label="Atualizar"
+      icon="pi pi-refresh"
+      severity="secondary"
+      [outlined]="true"
+      [loading]="auditoriaService.isLoading()"
+      (onClick)="reload()"
+    />
+  </app-page-header>
+
+  <div
+    class="kpi-grid"
+    aria-label="Resumo de movimentações auditadas"
+  >
+    <article class="kpi-card">
+      <span class="kpi-card__label">Total de Registros</span>
+      <strong class="kpi-card__value">{{ auditoriaService.movimentacoes().length }}</strong>
+      <span class="kpi-card__hint">Histórico consolidado</span>
+    </article>
+
+    <article class="kpi-card kpi-card--success">
+      <span class="kpi-card__label">Entradas</span>
+      <strong class="kpi-card__value">{{ totalEntradas() }}</strong>
+      <span class="kpi-card__hint">Reposições e recebimentos</span>
+    </article>
+
+    <article class="kpi-card kpi-card--warn">
+      <span class="kpi-card__label">Saídas</span>
+      <strong class="kpi-card__value">{{ totalSaidas() }}</strong>
+      <span class="kpi-card__hint">Dispensações registradas</span>
+    </article>
+
+    <article class="kpi-card kpi-card--info">
+      <span class="kpi-card__label">Ajustes de Inventário</span>
+      <strong class="kpi-card__value">{{ totalAjustes() }}</strong>
+      <span class="kpi-card__hint">Conferências de saldo</span>
+    </article>
+  </div>
+
+  @if (auditoriaService.error(); as errorMsg) {
+    <div
+      role="alert"
+      aria-live="assertive"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ errorMsg }}
+      </p-message>
+    </div>
+  }
+
+  <div class="surface-card">
+    <div
+      class="filter-bar"
+      role="search"
+      aria-label="Filtros de auditoria de estoque"
+    >
+      <div class="filter-bar__search">
+        <label
+          for="auditoria-search"
+          class="sr-only"
+        >
+          Buscar movimentação
+        </label>
+        <input
+          pInputText
+          id="auditoria-search"
+          type="search"
+          [value]="searchTerm()"
+          (input)="onSearchInput($event)"
+          placeholder="Buscar por medicamento, SKU, responsável ou observação..."
+        />
+      </div>
+
+      <label
+        for="auditoria-tipo-filter"
+        class="sr-only"
+      >
+        Filtrar por tipo de movimentação
+      </label>
+      <select
+        id="auditoria-tipo-filter"
+        class="filter-bar__select"
+        [value]="tipoFilter()"
+        (change)="onTipoFilterChange($event)"
+      >
+        <option value="TODOS">Todos os tipos</option>
+        <option value="ENTRADA">Entrada</option>
+        <option value="SAIDA">Saída</option>
+        <option value="AJUSTE">Ajuste de Inventário</option>
+      </select>
+
+      <span
+        class="filter-bar__meta"
+        role="status"
+        aria-live="polite"
+      >
+        {{ filteredMovimentacoes().length }} registro(s) exibido(s)
+      </span>
+    </div>
+
+    @if (auditoriaService.isLoading()) {
+      <div
+        class="state-box"
+        role="status"
+        aria-live="polite"
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          aria-hidden="true"
+        ></i>
+        <p>Carregando trilha de auditoria...</p>
+      </div>
+    } @else if (filteredMovimentacoes().length === 0) {
+      <div class="state-box">
+        <i
+          class="pi pi-shield"
+          aria-hidden="true"
+        ></i>
+        <p>Nenhuma movimentação encontrada para os filtros aplicados.</p>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Data / Hora</th>
+              <th scope="col">Medicamento</th>
+              <th scope="col">Tipo</th>
+              <th scope="col">Anterior</th>
+              <th scope="col">Movimentação</th>
+              <th scope="col">Posterior</th>
+              <th scope="col">Responsável</th>
+              <th scope="col">Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (mov of filteredMovimentacoes(); track mov.id) {
+              <tr>
+                <td class="data-table__num">{{ mov.criado_em | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  @if (mov.medicamento; as med) {
+                    <a
+                      class="data-table__link"
+                      [routerLink]="['/estoque', med.id]"
+                    >
+                      <span class="data-table__primary">{{ med.nome }}</span>
+                      <span class="data-table__secondary">
+                        {{ med.codigo_sku }} • {{ med.unidade_medida }}
+                      </span>
+                    </a>
+                  } @else {
+                    <span class="data-table__secondary">{{ mov.medicamento_id }}</span>
+                  }
+                </td>
+                <td>
+                  <app-status-badge [status]="mov.tipo" />
+                </td>
+                <td class="data-table__num">{{ mov.quantidade_anterior }}</td>
+                <td class="data-table__num">
+                  <span
+                    class="qty-delta"
+                    [class.qty-delta--pos]="mov.tipo === 'ENTRADA'"
+                    [class.qty-delta--neg]="mov.tipo === 'SAIDA'"
+                    [class.qty-delta--neutral]="mov.tipo === 'AJUSTE'"
+                  >
+                    {{ formatDelta(mov.tipo, mov.quantidade_movimentada) }}
+                  </span>
+                </td>
+                <td class="data-table__num">
+                  <strong>{{ mov.quantidade_posterior }}</strong>
+                </td>
+                <td>
+                  <span class="data-table__primary">{{ mov.gerente?.nome_completo ?? '—' }}</span>
+                  @if (mov.medico) {
+                    <span class="data-table__secondary">
+                      Médico: {{ mov.medico.nome_completo }}
+                    </span>
+                  }
+                </td>
+                <td>{{ mov.observacao || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>

@@ -5,6 +5,7 @@
         icon="pi pi-bars"
         [text]="true"
         [rounded]="true"
+        [pt]="{ root: { 'aria-controls': 'app-sidebar', 'aria-expanded': mobileMenuOpen() } }"
         severity="secondary"
         ariaLabel="Abrir ou fechar menu de navegação"
         styleClass="topbar__menu-btn"
@@ -16,12 +17,21 @@
           @for (crumb of breadcrumbs(); track crumb.route + crumb.label) {
             <li class="breadcrumb-list__item">
               @if (!crumb.isLast) {
-                <a [routerLink]="crumb.route" class="breadcrumb-list__link">
+                <a
+                  [routerLink]="crumb.route"
+                  class="breadcrumb-list__link"
+                >
                   {{ crumb.label }}
                 </a>
-                <i class="pi pi-angle-right breadcrumb-list__sep" aria-hidden="true"></i>
+                <i
+                  class="pi pi-angle-right breadcrumb-list__sep"
+                  aria-hidden="true"
+                ></i>
               } @else {
-                <span class="breadcrumb-list__current" aria-current="page">
+                <span
+                  class="breadcrumb-list__current"
+                  aria-current="page"
+                >
                   {{ crumb.label }}
                 </span>
               }
@@ -35,12 +45,21 @@
   <div class="topbar__center">
     <div class="topbar__pill topbar__pill--brand">
       <span class="topbar__brand">
-        <i class="pi pi-heart" aria-hidden="true"></i>
+        <i
+          class="pi pi-heart"
+          aria-hidden="true"
+        ></i>
         <strong>MediCore ERP</strong>
       </span>
-      <span class="topbar__divider" aria-hidden="true"></span>
+      <span
+        class="topbar__divider"
+        aria-hidden="true"
+      ></span>
       <span class="topbar__unit">
-        <i class="pi pi-building" aria-hidden="true"></i>
+        <i
+          class="pi pi-building"
+          aria-hidden="true"
+        ></i>
         Unidade Clínica Central
       </span>
     </div>
@@ -54,12 +73,16 @@
         [rounded]="true"
         severity="secondary"
         [ariaLabel]="isDarkMode() ? 'Ativar tema claro' : 'Ativar tema escuro'"
-        (onClick)="toggleTheme()"
+        (onClick)="toggleTheme($event)"
       />
 
       @if (currentUser(); as user) {
         <span class="topbar__email">{{ user.email }}</span>
-        <p-avatar [label]="userInitial()" shape="circle" aria-hidden="true" />
+        <p-avatar
+          [label]="userInitial()"
+          shape="circle"
+          aria-hidden="true"
+        />
       }
     </div>
   </div>

@@ -62,30 +62,40 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: {
           roles: ['GERENTE_ESTOQUE', 'MEDICO'],
+          breadcrumb: 'Estoque',
           title: 'Controle de Estoque',
           description: 'Monitoramento de medicamentos, alertas de reposição e solicitações.',
         },
-        loadComponent: loadPlaceholder,
+        loadChildren: () =>
+          import('./features/estoque/estoque.routes').then((m) => m.estoqueRoutes),
       },
       {
         path: 'pedidos-estoque',
         canActivate: [roleGuard],
         data: {
-          roles: ['GERENTE_ESTOQUE'],
+          roles: ['GERENTE_ESTOQUE', 'MEDICO'],
+          breadcrumb: 'Pedidos de Compra',
           title: 'Pedidos de Reestoque',
           description: 'Aprovação e recebimento de pedidos de compra de medicamentos.',
         },
-        loadComponent: loadPlaceholder,
+        loadComponent: () =>
+          import('./features/estoque/pages/pedidos-estoque/pedidos-estoque').then(
+            (m) => m.PedidosEstoquePage,
+          ),
       },
       {
         path: 'auditoria-estoque',
         canActivate: [roleGuard],
         data: {
           roles: ['GERENTE_ESTOQUE'],
+          breadcrumb: 'Auditoria de Estoque',
           title: 'Auditoria de Movimentações',
           description: 'Histórico imutável de entradas, saídas e ajustes de inventário.',
         },
-        loadComponent: loadPlaceholder,
+        loadComponent: () =>
+          import('./features/estoque/pages/auditoria-estoque/auditoria-estoque').then(
+            (m) => m.AuditoriaEstoquePage,
+          ),
       },
       {
         path: 'portal',

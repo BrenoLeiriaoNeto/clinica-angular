@@ -183,10 +183,10 @@ CREATE TABLE IF NOT EXISTS public.receituario_itens (
   );
 
 -- ============================================================================
--- 4. TRIGGERS DE REGRAS DE NEGÓCIO NO BANCO
+-- 4. TRIGGERS DE INTEGRIDADE E FUNÇÕES ATÔMICAS DE ESTOQUE
 -- ============================================================================
 
--- Regra: Medicamento com menos de 50 unidades entra automaticamente em REPOSICAO
+-- 4.1 Atualiza status NORMAL/REPOSICAO automaticamente
 CREATE OR REPLACE FUNCTION public.fn_atualizar_status_estoque()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -207,8 +207,268 @@ CREATE TRIGGER trg_medicamentos_status_estoque
                      FOR EACH ROW
                      EXECUTE FUNCTION public.fn_atualizar_status_estoque();
 
+-- 4.2 Impede escalada de privilégio bloqueando alteração de role via PostgREST
+CREATE OR REPLACE FUNCTION public.fn_proteger_role_perfil()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role AND current_user NOT IN ('postgres', 'service_role') THEN
+    RAISE EXCEPTION 'Alteração de papel (role) não é permitida pela API cliente.';
+END IF;
+  NEW.atualizado_em := NOW();
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_perfis_proteger_role ON public.perfis;
+CREATE TRIGGER trg_perfis_proteger_role
+  BEFORE UPDATE ON public.perfis
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_proteger_role_perfil();
+
+-- 4.3 Impede alteração direta de saldo fora da RPC atômica
+CREATE OR REPLACE FUNCTION public.fn_proteger_saldo_medicamento()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.quantidade_atual IS DISTINCT FROM OLD.quantidade_atual
+     AND COALESCE(current_setting('app.in_stock_rpc', true), 'false') <> 'true'
+     AND current_user NOT IN ('postgres', 'service_role') THEN
+    RAISE EXCEPTION 'O saldo de estoque deve ser alterado exclusivamente via registrar_movimentacao_estoque.';
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_medicamentos_proteger_saldo ON public.medicamentos;
+CREATE TRIGGER trg_medicamentos_proteger_saldo
+  BEFORE UPDATE OF quantidade_atual ON public.medicamentos
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_proteger_saldo_medicamento();
+
+-- 4.4 Impede marcar pedido como RECEBIDO fora da RPC atômica
+CREATE OR REPLACE FUNCTION public.fn_proteger_recebimento_pedido()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (NEW.medicamento_id IS DISTINCT FROM OLD.medicamento_id
+      OR NEW.quantidade_solicitada IS DISTINCT FROM OLD.quantidade_solicitada
+      OR NEW.medico_solicitante_id IS DISTINCT FROM OLD.medico_solicitante_id
+      OR NEW.justificativa IS DISTINCT FROM OLD.justificativa)
+     AND current_user NOT IN ('postgres', 'service_role') THEN
+    RAISE EXCEPTION 'Os dados originais do pedido não podem ser alterados.';
+END IF;
+
+  IF NEW.status = 'RECEBIDO'
+     AND OLD.status IS DISTINCT FROM 'RECEBIDO'
+     AND COALESCE(current_setting('app.in_stock_rpc', true), 'false') <> 'true'
+     AND current_user NOT IN ('postgres', 'service_role') THEN
+    RAISE EXCEPTION 'O recebimento de pedido deve ser processado via receber_pedido_estoque.';
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_pedidos_proteger_recebimento ON public.pedidos_estoque;
+CREATE TRIGGER trg_pedidos_proteger_recebimento
+  BEFORE UPDATE ON public.pedidos_estoque
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_proteger_recebimento_pedido();
+
+-- 4.5 Helper seguro de role baseado em public.perfis
+CREATE OR REPLACE FUNCTION public.current_app_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+SELECT COALESCE(
+         (SELECT role::text FROM public.perfis WHERE id = auth.uid()),
+         'ANON'
+       );
+$$;
+
+-- 4.6 RPC Atômica: Movimentação de Estoque + Auditoria Imutável
+CREATE OR REPLACE FUNCTION public.registrar_movimentacao_estoque(
+  p_medicamento_id UUID,
+  p_tipo public.tipo_movimentacao,
+  p_quantidade INTEGER,
+  p_observacao TEXT DEFAULT NULL,
+  p_medico_solicitante_id UUID DEFAULT NULL
+)
+RETURNS public.medicamentos
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+v_user_id UUID := auth.uid();
+  v_med public.medicamentos;
+  v_anterior INTEGER;
+  v_posterior INTEGER;
+  v_movimentada INTEGER;
+BEGIN
+  IF v_user_id IS NULL OR public.current_app_role() <> 'GERENTE_ESTOQUE' THEN
+    RAISE EXCEPTION 'Acesso negado: apenas o Gerente de Estoque pode movimentar saldo.';
+END IF;
+
+SELECT * INTO v_med
+FROM public.medicamentos
+WHERE id = p_medicamento_id
+  FOR UPDATE;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Medicamento não encontrado.';
+END IF;
+
+IF NOT v_med.ativo THEN
+  RAISE EXCEPTION 'Não é possível movimentar saldo de um medicamento descontinuado';
+END IF;
+
+  v_anterior := v_med.quantidade_atual;
+
+  IF p_tipo = 'ENTRADA' THEN
+    IF p_quantidade IS NULL OR p_quantidade <= 0 THEN
+      RAISE EXCEPTION 'A quantidade de entrada deve ser maior que zero.';
+END IF;
+    v_posterior := v_anterior + p_quantidade;
+    v_movimentada := p_quantidade;
+  ELSIF p_tipo = 'SAIDA' THEN
+    IF p_quantidade IS NULL OR p_quantidade <= 0 THEN
+      RAISE EXCEPTION 'A quantidade de saída deve ser maior que zero.';
+END IF;
+    IF p_quantidade > v_anterior THEN
+      RAISE EXCEPTION 'Saldo insuficiente em estoque para esta saída.';
+END IF;
+    v_posterior := v_anterior - p_quantidade;
+    v_movimentada := p_quantidade;
+ELSE
+    IF p_quantidade IS NULL OR p_quantidade < 0 THEN
+      RAISE EXCEPTION 'O saldo ajustado não pode ser negativo.';
+END IF;
+    v_posterior := p_quantidade;
+    v_movimentada := ABS(v_posterior - v_anterior);
+END IF;
+
+  PERFORM set_config('app.in_stock_rpc', 'true', true);
+
+UPDATE public.medicamentos
+SET quantidade_atual = v_posterior
+WHERE id = p_medicamento_id
+  RETURNING * INTO v_med;
+
+INSERT INTO public.estoque_movimentacoes (
+  medicamento_id,
+  tipo,
+  quantidade_anterior,
+  quantidade_movimentada,
+  quantidade_posterior,
+  gerente_responsavel_id,
+  medico_solicitante_id,
+  observacao
+) VALUES (
+           p_medicamento_id,
+           p_tipo,
+           v_anterior,
+           v_movimentada,
+           v_posterior,
+           v_user_id,
+           p_medico_solicitante_id,
+           NULLIF(TRIM(COALESCE(p_observacao, '')), '')
+         );
+
+RETURN v_med;
+END;
+$$;
+
+-- 4.7 RPC Atômica: Recebimento de Pedido + Entrada em Estoque
+CREATE OR REPLACE FUNCTION public.receber_pedido_estoque(
+  p_pedido_id UUID
+)
+RETURNS public.pedidos_estoque
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+v_user_id UUID := auth.uid();
+  v_pedido public.pedidos_estoque;
+BEGIN
+  IF v_user_id IS NULL OR public.current_app_role() <> 'GERENTE_ESTOQUE' THEN
+    RAISE EXCEPTION 'Acesso negado: apenas o Gerente de Estoque pode receber pedidos.';
+END IF;
+
+SELECT * INTO v_pedido
+FROM public.pedidos_estoque
+WHERE id = p_pedido_id
+  FOR UPDATE;
+
+IF NOT FOUND THEN
+    RAISE EXCEPTION 'Pedido de estoque não encontrado.';
+END IF;
+
+  IF v_pedido.status NOT IN ('PENDENTE', 'APROVADO') THEN
+    RAISE EXCEPTION 'Apenas pedidos pendentes ou aprovados podem ser marcados como recebidos.';
+END IF;
+
+  PERFORM set_config('app.in_stock_rpc', 'true', true);
+
+UPDATE public.pedidos_estoque
+SET status = 'RECEBIDO',
+    gerente_responsavel_id = v_user_id,
+    atualizado_em = NOW()
+WHERE id = p_pedido_id
+  RETURNING * INTO v_pedido;
+
+PERFORM public.registrar_movimentacao_estoque(
+    v_pedido.medicamento_id,
+    'ENTRADA',
+    v_pedido.quantidade_solicitada,
+    'Recebimento do pedido #' || LEFT(v_pedido.id::text, 8),
+    v_pedido.medico_solicitante_id
+  );
+
+RETURN v_pedido;
+END;
+$$;
+
+-- 4.8 Trigger: registra entrada inicial na auditoria ao cadastrar medicamento com saldo > 0
+CREATE OR REPLACE FUNCTION public.fn_auditar_saldo_inicial_medicamento()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.quantidade_atual > 0 AND auth.uid() IS NOT NULL THEN
+    INSERT INTO public.estoque_movimentacoes (
+      medicamento_id,
+      tipo,
+      quantidade_anterior,
+      quantidade_movimentada,
+      quantidade_posterior,
+      gerente_responsavel_id,
+      observacao
+    ) VALUES (
+      NEW.id,
+      'ENTRADA',
+      0,
+      NEW.quantidade_atual,
+      NEW.quantidade_atual,
+      auth.uid(),
+      'Saldo inicial cadastrado no catálogo'
+    );
+END IF;
+RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_medicamentos_auditar_saldo_inicial ON public.medicamentos;
+CREATE TRIGGER trg_medicamentos_auditar_saldo_inicial
+  AFTER INSERT ON public.medicamentos
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_auditar_saldo_inicial_medicamento();
+
 -- ============================================================================
--- 5. SEGURANÇA: ROW LEVEL SECURITY (RLS) E POLÍTICAS POR ROLE
+-- 5. SEGURANÇA: ROW LEVEL SECURITY (RLS) GRANULAR POR OPERAÇÃO
 -- ============================================================================
 
 ALTER TABLE public.perfis ENABLE ROW LEVEL SECURITY;
@@ -220,106 +480,160 @@ ALTER TABLE public.consultas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receituarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receituario_itens ENABLE ROW LEVEL SECURITY;
 
--- Helper para ler a role direto do JWT sem causar recursão em queries
-CREATE OR REPLACE FUNCTION public.current_app_role()
-RETURNS TEXT AS $$
-SELECT COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', 'ANON');
-$$ LANGUAGE sql STABLE;
-
--- Políticas: PERFIS
+-- PERFIS
+-- PERFIS
 DROP POLICY IF EXISTS "perfis_leitura_autenticada" ON public.perfis;
-CREATE POLICY "perfis_leitura_autenticada" ON public.perfis
-  FOR SELECT TO authenticated USING (TRUE);
-
 DROP POLICY IF EXISTS "perfis_gestao_recepcao" ON public.perfis;
-CREATE POLICY "perfis_gestao_recepcao" ON public.perfis
-  FOR ALL TO authenticated
-  USING (public.current_app_role() = 'RECEPCIONISTA' OR auth.uid() = id)
-  WITH CHECK (public.current_app_role() = 'RECEPCIONISTA' OR auth.uid() = id AND role::text = public.current_app_role());
+DROP POLICY IF EXISTS "perfis_leitura_restrita" ON public.perfis;
+DROP POLICY IF EXISTS "perfis_update_restrito" ON public.perfis;
 
--- Políticas: MEDICAMENTOS
+CREATE POLICY "perfis_leitura_restrita" ON public.perfis
+  FOR SELECT TO authenticated
+                                   USING (
+                                   id = auth.uid()
+                                   OR role = 'MEDICO'
+                                   OR public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO', 'GERENTE_ESTOQUE')
+                                   );
+
+CREATE POLICY "perfis_update_restrito" ON public.perfis
+  FOR UPDATE TO authenticated
+               USING (public.current_app_role() = 'RECEPCIONISTA' OR id = auth.uid())
+      WITH CHECK (public.current_app_role() = 'RECEPCIONISTA' OR id = auth.uid());
+
+-- MEDICAMENTOS
 DROP POLICY IF EXISTS "medicamentos_leitura_geral" ON public.medicamentos;
+DROP POLICY IF EXISTS "medicamentos_escrita_gerente" ON public.medicamentos;
+DROP POLICY IF EXISTS "medicamentos_insert_gerente" ON public.medicamentos;
+DROP POLICY IF EXISTS "medicamentos_update_gerente" ON public.medicamentos;
+
 CREATE POLICY "medicamentos_leitura_geral" ON public.medicamentos
   FOR SELECT TO authenticated USING (TRUE);
 
-DROP POLICY IF EXISTS "medicamentos_escrita_gerente" ON public.medicamentos;
-CREATE POLICY "medicamentos_escrita_gerente" ON public.medicamentos
-  FOR ALL TO authenticated
-  USING (public.current_app_role() = 'GERENTE_ESTOQUE')
+CREATE POLICY "medicamentos_insert_gerente" ON public.medicamentos
+  FOR INSERT TO authenticated
   WITH CHECK (public.current_app_role() = 'GERENTE_ESTOQUE');
 
--- Políticas: PEDIDOS DE ESTOQUE (Gerente gerencia; Médico pode solicitar)
-DROP POLICY IF EXISTS "pedidos_estoque_leitura" ON public.pedidos_estoque;
-CREATE POLICY "pedidos_estoque_leitura" ON public.pedidos_estoque
-  FOR SELECT TO authenticated
-                                USING (public.current_app_role() IN ('GERENTE_ESTOQUE', 'MEDICO'));
-
-DROP POLICY IF EXISTS "pedidos_estoque_insercao" ON public.pedidos_estoque;
-CREATE POLICY "pedidos_estoque_insercao" ON public.pedidos_estoque
-  FOR INSERT TO authenticated
-  WITH CHECK (public.current_app_role() IN ('GERENTE_ESTOQUE', 'MEDICO'));
-
-DROP POLICY IF EXISTS "pedidos_estoque_update_gerente" ON public.pedidos_estoque;
-CREATE POLICY "pedidos_estoque_update_gerente" ON public.pedidos_estoque
+CREATE POLICY "medicamentos_update_gerente" ON public.medicamentos
   FOR UPDATE TO authenticated
-                                USING (public.current_app_role() = 'GERENTE_ESTOQUE')
+                      USING (public.current_app_role() = 'GERENTE_ESTOQUE')
       WITH CHECK (public.current_app_role() = 'GERENTE_ESTOQUE');
 
--- Políticas: AUDITORIA DE ESTOQUE (Somente Gerente de Estoque)
-DROP POLICY IF EXISTS "auditoria_estoque_gerente" ON public.estoque_movimentacoes;
-CREATE POLICY "auditoria_estoque_gerente" ON public.estoque_movimentacoes
-  FOR ALL TO authenticated
-  USING (public.current_app_role() = 'GERENTE_ESTOQUE')
-  WITH CHECK (public.current_app_role() = 'GERENTE_ESTOQUE');
+-- PEDIDOS DE ESTOQUE (vincula solicitante/gerente ao auth.uid())
+DROP POLICY IF EXISTS "pedidos_estoque_leitura" ON public.pedidos_estoque;
+DROP POLICY IF EXISTS "pedidos_estoque_insercao" ON public.pedidos_estoque;
+DROP POLICY IF EXISTS "pedidos_estoque_update_gerente" ON public.pedidos_estoque;
 
--- Políticas: AGENDAMENTOS
-DROP POLICY IF EXISTS "agendamentos_acesso" ON public.agendamentos;
-CREATE POLICY "agendamentos_acesso" ON public.agendamentos
-  FOR ALL TO authenticated
-  USING (
-    public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO')
-    OR paciente_id = auth.uid()
-  )
+CREATE POLICY "pedidos_estoque_leitura" ON public.pedidos_estoque
+  FOR SELECT TO authenticated
+                              USING (public.current_app_role() IN ('GERENTE_ESTOQUE', 'MEDICO'));
+
+CREATE POLICY "pedidos_estoque_insercao" ON public.pedidos_estoque
+  FOR INSERT TO authenticated
   WITH CHECK (
-    public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO')
-    OR paciente_id = auth.uid()
+    status = 'PENDENTE'
+    AND EXISTS (
+      SELECT 1 FROM public.medicamentos m
+      WHERE m.id = medicamento_id AND m.ativo = TRUE
+    )
+    AND (
+      (public.current_app_role() = 'MEDICO' AND medico_solicitante_id = auth.uid() AND gerente_responsavel_id IS NULL)
+      OR
+      (public.current_app_role() = 'GERENTE_ESTOQUE' AND gerente_responsavel_id = auth.uid() AND medico_solicitante_id IS NULL)
+    )
   );
 
--- Políticas: CONSULTAS
+CREATE POLICY "pedidos_estoque_update_gerente" ON public.pedidos_estoque
+  FOR UPDATE TO authenticated
+                      USING (public.current_app_role() = 'GERENTE_ESTOQUE' AND status IN ('PENDENTE', 'APROVADO'))
+      WITH CHECK (public.current_app_role() = 'GERENTE_ESTOQUE' AND status IN ('APROVADO', 'CANCELADO'));
+
+-- AUDITORIA DE ESTOQUE
+DROP POLICY IF EXISTS "auditoria_estoque_gerente" ON public.estoque_movimentacoes;
+DROP POLICY IF EXISTS "auditoria_estoque_leitura" ON public.estoque_movimentacoes;
+DROP POLICY IF EXISTS "auditoria_estoque_insercao" ON public.estoque_movimentacoes;
+
+CREATE POLICY "auditoria_estoque_leitura" ON public.estoque_movimentacoes
+  FOR SELECT TO authenticated
+                              USING (public.current_app_role() = 'GERENTE_ESTOQUE');
+
+-- AGENDAMENTOS
+DROP POLICY IF EXISTS "agendamentos_acesso" ON public.agendamentos;
+DROP POLICY IF EXISTS "agendamentos_select" ON public.agendamentos;
+DROP POLICY IF EXISTS "agendamentos_insert" ON public.agendamentos;
+DROP POLICY IF EXISTS "agendamentos_update" ON public.agendamentos;
+
+CREATE POLICY "agendamentos_select" ON public.agendamentos
+  FOR SELECT TO authenticated
+                                   USING (public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO') OR paciente_id = auth.uid());
+
+CREATE POLICY "agendamentos_insert" ON public.agendamentos
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO') OR paciente_id = auth.uid());
+
+CREATE POLICY "agendamentos_update" ON public.agendamentos
+  FOR UPDATE TO authenticated
+                      USING (public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO') OR paciente_id = auth.uid())
+      WITH CHECK (public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO') OR paciente_id = auth.uid());
+
+-- CONSULTAS
 DROP POLICY IF EXISTS "consultas_acesso" ON public.consultas;
-CREATE POLICY "consultas_acesso" ON public.consultas
-  FOR ALL TO authenticated
-  USING (
-    public.current_app_role() IN ('MEDICO', 'RECEPCIONISTA')
-    OR paciente_id = auth.uid()
-  )
+DROP POLICY IF EXISTS "consultas_select" ON public.consultas;
+DROP POLICY IF EXISTS "consultas_insert_medico" ON public.consultas;
+DROP POLICY IF EXISTS "consultas_update_medico" ON public.consultas;
+
+CREATE POLICY "consultas_select" ON public.consultas
+  FOR SELECT TO authenticated
+                                   USING (public.current_app_role() IN ('MEDICO', 'RECEPCIONISTA') OR paciente_id = auth.uid());
+
+CREATE POLICY "consultas_insert_medico" ON public.consultas
+  FOR INSERT TO authenticated
   WITH CHECK (public.current_app_role() = 'MEDICO');
 
--- Políticas: RECEITUÁRIOS E ITENS
-DROP POLICY IF EXISTS "receituarios_acesso" ON public.receituarios;
-CREATE POLICY "receituarios_acesso" ON public.receituarios
-  FOR ALL TO authenticated
-  USING (
-    public.current_app_role() = 'MEDICO'
-    OR paciente_id = auth.uid()
-  )
-  WITH CHECK (
-    public.current_app_role() = 'MEDICO'
-    OR paciente_id = auth.uid()
-  );
+CREATE POLICY "consultas_update_medico" ON public.consultas
+  FOR UPDATE TO authenticated
+                      USING (public.current_app_role() = 'MEDICO')
+      WITH CHECK (public.current_app_role() = 'MEDICO');
 
+-- RECEITUÁRIOS E ITENS
+DROP POLICY IF EXISTS "receituarios_acesso" ON public.receituarios;
+DROP POLICY IF EXISTS "receituarios_select" ON public.receituarios;
+DROP POLICY IF EXISTS "receituarios_insert_medico" ON public.receituarios;
+DROP POLICY IF EXISTS "receituarios_update" ON public.receituarios;
 DROP POLICY IF EXISTS "receituario_itens_acesso" ON public.receituario_itens;
-CREATE POLICY "receituario_itens_acesso" ON public.receituario_itens
-  FOR ALL TO authenticated
-  USING (
-       public.current_app_role() = 'MEDICO'
-       OR EXISTS (
-       SELECT 1
-       FROM public.receituarios r
-       WHERE r.id = receituario_id
-       AND r.paciente_id = auth.uid()
-       )
-  )
+DROP POLICY IF EXISTS "receituario_itens_select" ON public.receituario_itens;
+DROP POLICY IF EXISTS "receituario_itens_insert_medico" ON public.receituario_itens;
+
+CREATE POLICY "receituarios_select" ON public.receituarios
+  FOR SELECT TO authenticated
+                                                  USING (public.current_app_role() = 'MEDICO' OR paciente_id = auth.uid());
+
+CREATE POLICY "receituarios_insert_medico" ON public.receituarios
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_app_role() = 'MEDICO');
+
+CREATE POLICY "receituarios_update" ON public.receituarios
+  FOR UPDATE TO authenticated
+                      USING (
+                      public.current_app_role() = 'MEDICO'
+                      OR (paciente_id = auth.uid() AND status = 'VENCIDO')
+                      )
+      WITH CHECK (
+                      public.current_app_role() = 'MEDICO'
+                      OR (paciente_id = auth.uid() AND status = 'REEMISSAO_SOLICITADA')
+                      );
+
+CREATE POLICY "receituario_itens_select" ON public.receituario_itens
+  FOR SELECT TO authenticated
+               USING (
+               public.current_app_role() = 'MEDICO'
+               OR EXISTS (
+               SELECT 1 FROM public.receituarios r
+               WHERE r.id = receituario_id AND r.paciente_id = auth.uid()
+               )
+               );
+
+CREATE POLICY "receituario_itens_insert_medico" ON public.receituario_itens
+  FOR INSERT TO authenticated
   WITH CHECK (public.current_app_role() = 'MEDICO');
 
 -- ============================================================================

@@ -47,7 +47,7 @@ describe('Sidebar', () => {
       fixture.nativeElement.querySelectorAll('.sidebar__link') as NodeListOf<HTMLAnchorElement>,
     ).map((el) => el.textContent?.trim());
 
-    expect(links).toEqual(['Dashboard', 'Agenda Médica', 'Receituários', 'Estoque']);
+    expect(links).toEqual(['Dashboard', 'Agenda Médica', 'Receituários', 'Estoque', 'Pedidos de Compra']);
     expect(links).not.toContain('Meu Portal');
   });
 

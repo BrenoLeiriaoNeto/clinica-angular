@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, ElementRef, inject, input, output } from '@angular/core';
 import { UserRole } from '../../models/auth.model';
 import { AuthService } from '../../auth/auth.service';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Pedidos de Compra',
     route: '/pedidos-estoque',
     icon: 'pi pi-shopping-cart',
-    roles: ['GERENTE_ESTOQUE'],
+    roles: ['GERENTE_ESTOQUE', 'MEDICO'],
   },
   {
     label: 'Auditoria de Estoque',
@@ -91,6 +91,7 @@ const NAV_ITEMS: NavItem[] = [
 export class Sidebar {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly mobileOpen = input<boolean>(false);
   readonly closeMobile = output<void>();
@@ -118,5 +119,11 @@ export class Sidebar {
     this.closeMobile.emit();
     this.authService.logout();
     this.router.navigateByUrl('/login');
+  }
+
+  focusDrawer(): void {
+    this.hostRef.nativeElement
+      .querySelector<HTMLElement>('button.sidebar__close-btn, .sidebar__close-btn, .sidebar__link')
+      ?.focus();
   }
 }

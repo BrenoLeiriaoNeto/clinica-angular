@@ -1,4 +1,9 @@
-import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners  } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
 import { provideOptimus } from '@openng/optimus-ui/config';
@@ -6,6 +11,7 @@ import Aura from '@openng/optimus-ui-themes/aura';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { supabaseInterceptor } from './core/http/supabase.interceptor';
 import { ThemeService } from './core/theme/theme.service';
+import { ConfirmationService, MessageService } from '@openng/optimus-ui/api';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -13,15 +19,18 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withInterceptors([supabaseInterceptor])),
     provideAppInitializer(() => {
-      inject(ThemeService)
+      inject(ThemeService);
     }),
-    provideOptimus({ theme: {
-      preset: Aura,
-      options: {
-        darkModeSelector: '.app-dark'
-      }
-    },
-      ripple: true
+    MessageService,
+    ConfirmationService,
+    provideOptimus({
+      theme: {
+        preset: Aura,
+        options: {
+          darkModeSelector: '.app-dark',
+        },
+      },
+      ripple: true,
     }),
   ],
 };
