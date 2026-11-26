@@ -181,4 +181,54 @@ describe('MedicamentoDetailPage (Integração)', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Medicamento não encontrado');
   });
+
+  it('exibe status acima do mínimo, formata ENTRADA/AJUSTE e trata estados vazios', () => {
+    fixture.componentRef.setInput('id', 'med-1');
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([{ ...mockMedicamento, quantidade_atual: 80, status: 'NORMAL' }]);
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
+      .flush([
+        {
+          id: 'mov-entrada',
+          medicamento_id: 'med-1',
+          tipo: 'ENTRADA',
+          quantidade_anterior: 50,
+          quantidade_movimentada: 30,
+          quantidade_posterior: 80,
+          gerente_responsavel_id: mockGerente.id,
+          medico_solicitante_id: null,
+          observacao: 'NF-100',
+          criado_em: '2026-11-22T12:00:00Z',
+        },
+        {
+          id: 'mov-ajuste',
+          medicamento_id: 'med-1',
+          tipo: 'AJUSTE',
+          quantidade_anterior: 80,
+          quantidade_movimentada: 80,
+          quantidade_posterior: 80,
+          gerente_responsavel_id: mockGerente.id,
+          medico_solicitante_id: null,
+          observacao: 'Conferência',
+          criado_em: '2026-11-22T13:00:00Z',
+        },
+      ]);
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([]);
+
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Acima ou igual ao nível mínimo');
+    expect(text).toContain('+30');
+    expect(text).toContain('= 80');
+    expect(text).toContain('Nenhum pedido de re-estoque registrado para este medicamento.');
+  });
 });

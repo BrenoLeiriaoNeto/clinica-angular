@@ -139,4 +139,83 @@ describe('PedidosEstoquePage (Integração)', () => {
 
     expect(el.textContent).toContain('Recebido');
   });
+
+  it('filtra pedidos por texto e status, e permite cancelar pedido via modal de confirmação', () => {
+    const pedidoRecebido: PedidoEstoque = {
+      ...mockPedidoPendente,
+      id: 'ped-2',
+      status: 'RECEBIDO',
+      justificativa: 'Lote entregue',
+    };
+
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([mockPedidoPendente, pedidoRecebido]);
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('tbody tr').length).toBe(2);
+
+    const statusSelect = el.querySelector('#pedidos-status-filter') as HTMLSelectElement;
+    statusSelect.value = 'PENDENTE';
+    statusSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr').length).toBe(1);
+
+    const searchInput = el.querySelector('#pedidos-search') as HTMLInputElement;
+    searchInput.value = 'pronto atendimento';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr').length).toBe(1);
+
+    const cancelarIconBtn = el.querySelector(
+      'button[aria-label="Cancelar pedido"]',
+    ) as HTMLButtonElement;
+    cancelarIconBtn.click();
+    fixture.detectChanges();
+
+    const confirmCancelBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.confirm-dialog__actions button'),
+    ).find((b) => b.textContent?.includes('Cancelar Pedido'));
+    expect(confirmCancelBtn).toBeTruthy();
+    confirmCancelBtn!.click();
+
+    const patchReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque` && r.method === 'PATCH',
+    );
+    expect(patchReq.request.body.status).toBe('CANCELADO');
+    patchReq.flush([{ ...mockPedidoPendente, status: 'CANCELADO' }]);
+    fixture.detectChanges();
+
+    expect(el.querySelectorAll('tbody tr').length).toBe(0);
+  });
+
+  it('oculta ações de aprovação/recebimento para MEDICO e exibe erro quando loadPedidos falha', () => {
+    userSignal.set({
+      id: '22222222-2222-2222-2222-222222222222',
+      email: 'medico@medicore.com',
+      fullName: 'Dr. Henrique',
+      role: 'MEDICO',
+    });
+
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush({}, { status: 500, statusText: 'Server Error' });
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Nova Solicitação');
+    expect(el.textContent).not.toContain('Aprovar');
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'Não foi possível carregar os pedidos de reestoque.',
+    );
+  });
 });

@@ -85,4 +85,63 @@ describe('AuditoriaEstoquePage (Integração)', () => {
     expect(el.querySelectorAll('tbody tr').length).toBe(1);
     expect(el.querySelector('tbody')?.textContent).toContain('Dispensação clínica');
   });
+
+  it('filtra por busca textual, formata AJUSTE, recarrega via botão Atualizar e exibe erro HTTP', () => {
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
+      .flush([
+        {
+          id: 'mov-3',
+          medicamento_id: 'med-1',
+          tipo: 'AJUSTE',
+          quantidade_anterior: 60,
+          quantidade_movimentada: 5,
+          quantidade_posterior: 55,
+          gerente_responsavel_id: 'ger-1',
+          medico_solicitante_id: 'med-user-1',
+          observacao: 'Inventário mensal',
+          criado_em: '2026-11-23T08:00:00Z',
+          medicamento: {
+            id: 'med-1',
+            codigo_sku: 'MED-001',
+            nome: 'Amoxicilina 500mg',
+            unidade_medida: 'Caixa',
+          },
+          gerente: { id: 'ger-1', nome_completo: 'Roberto Nogueira' },
+          medico: { id: 'med-user-1', nome_completo: 'Dr. Henrique' },
+        },
+      ]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('= 5');
+    expect(el.textContent).toContain('Dr. Henrique');
+
+    const searchInput = el.querySelector('#auditoria-search') as HTMLInputElement;
+    searchInput.value = 'mensal';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr').length).toBe(1);
+
+    searchInput.value = 'termo-inexistente';
+    searchInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr').length).toBe(0);
+
+    const refreshBtn = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Atualizar'),
+    );
+    refreshBtn?.click();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
+      .flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'Não foi possível carregar o histórico de auditoria.',
+    );
+  });
 });

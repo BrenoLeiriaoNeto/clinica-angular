@@ -136,4 +136,84 @@ describe('EstoqueListPage (Integração)', () => {
     expect(el.textContent).not.toContain('Novo Medicamento');
     expect(el.textContent).toContain('Solicitar Re-estoque');
   });
+
+  it('filtra itens descontinuados pelo checkbox e permite descontinuar via confirmação', () => {
+    const inativo: Medicamento = {
+      ...mockCatalogo[0]!,
+      id: 'med-3',
+      codigo_sku: 'MED-003',
+      nome: 'Nimesulida 100mg',
+      ativo: false,
+    };
+
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush([...mockCatalogo, inativo]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    // Inativo oculto por padrão
+    expect(el.querySelectorAll('tbody tr').length).toBe(2);
+
+    const showInactiveCheckbox = el.querySelector(
+      '.filter-bar__checkbox input[type="checkbox"]',
+    ) as HTMLInputElement;
+    showInactiveCheckbox.checked = true;
+    showInactiveCheckbox.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(el.querySelectorAll('tbody tr').length).toBe(3);
+
+    // Abre confirmação de descontinuar e cancela
+    const descontinuarBtn = el.querySelector(
+      'button[aria-label="Descontinuar Amoxicilina 500mg"]',
+    ) as HTMLButtonElement;
+    descontinuarBtn.click();
+    fixture.detectChanges();
+
+    const cancelBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Cancelar'),
+    );
+    cancelBtn?.click();
+    fixture.detectChanges();
+
+    // Abre novamente e confirma via PATCH
+    descontinuarBtn.click();
+    fixture.detectChanges();
+
+    const confirmBtn = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.confirm-dialog__actions button'),
+    ).find((b) => b.textContent?.trim() === 'Descontinuar');
+    expect(confirmBtn).toBeTruthy();
+    confirmBtn!.click();
+
+    const patchReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos` && r.method === 'PATCH',
+    );
+    expect(patchReq.request.body).toEqual({ ativo: false });
+    patchReq.flush([{ ...mockCatalogo[0]!, ativo: false }]);
+    fixture.detectChanges();
+
+    expect(el.querySelectorAll('tbody tr').length).toBe(3);
+  });
+
+  it('exibe alerta de erro quando falha o carregamento e permite abrir dialogs de cadastro e movimentação', () => {
+    fixture.detectChanges();
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/medicamentos`)
+      .flush({}, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'Não foi possível carregar o catálogo de medicamentos.',
+    );
+
+    const novoBtn = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Novo Medicamento'),
+    );
+    novoBtn?.click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Código SKU');
+  });
 });

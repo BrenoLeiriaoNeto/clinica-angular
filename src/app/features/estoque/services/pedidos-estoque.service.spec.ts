@@ -19,16 +19,26 @@ describe('PedidosEstoqueService', () => {
     loadMedicamentos: vi.fn(() => of([])),
   };
 
-  const auditoriaMock = {
-    movimentacoes: signal([]).asReadonly(),
-    loadMovimentacoes: vi.fn(() => of([])),
-  };
-
   const mockGerente: UserProfile = {
     id: '33333333-3333-3333-3333-333333333333',
     email: 'estoque@medicore.com',
     fullName: 'Roberto Nogueira',
     role: 'GERENTE_ESTOQUE',
+  };
+
+  const mockMedico: UserProfile = {
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'medico@medicore.com',
+    fullName: 'Dr. Henrique Vasconcelos',
+    role: 'MEDICO',
+  };
+
+  const userSignal = signal<UserProfile | null>(mockGerente);
+  const auditoriaMovsSignal = signal<{ id: string }[]>([]);
+
+  const auditoriaMock = {
+    movimentacoes: auditoriaMovsSignal.asReadonly(),
+    loadMovimentacoes: vi.fn(() => of([])),
   };
 
   const basePedido: PedidoEstoque = {
@@ -44,7 +54,10 @@ describe('PedidosEstoqueService', () => {
   };
 
   beforeEach(() => {
+    userSignal.set(mockGerente);
+    auditoriaMovsSignal.set([]);
     medicamentosMock.loadMedicamentos.mockClear();
+    auditoriaMock.loadMovimentacoes.mockClear();
 
     TestBed.configureTestingModule({
       providers: [
@@ -52,7 +65,7 @@ describe('PedidosEstoqueService', () => {
         provideHttpClientTesting(),
         {
           provide: AuthService,
-          useValue: { currentUser: signal<UserProfile | null>(mockGerente).asReadonly() },
+          useValue: { currentUser: userSignal.asReadonly() },
         },
         { provide: MedicamentosService, useValue: medicamentosMock },
         { provide: AuditoriaEstoqueService, useValue: auditoriaMock },
@@ -82,7 +95,96 @@ describe('PedidosEstoqueService', () => {
     httpMock.expectNone(`${environment.supabaseUrl}/rest/v1/pedidos_estoque`);
   });
 
-  it('calls atomic receber_pedido_estoque RPC and prevents duplicate receipt', () => {
+  it('loads pedidos, computes pedidosPendentes, and handles HTTP failure', () => {
+    const pendente: PedidoEstoque = { ...basePedido, id: 'ped-pendente', status: 'PENDENTE' };
+    service.loadPedidos().subscribe();
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([pendente, basePedido]);
+
+    expect(service.pedidos().length).toBe(2);
+    expect(service.pedidosPendentes()).toEqual([pendente]);
+
+    service.loadPedidos().subscribe({ error: () => undefined });
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush({}, { status: 500, statusText: 'Server Error' });
+
+    expect(service.error()).toBe('Não foi possível carregar os pedidos de reestoque.');
+    expect(service.isLoading()).toBe(false);
+  });
+
+  it('rejects solicitar and atualizarStatus when user is not authenticated', () => {
+    userSignal.set(null);
+
+    let solicitarErr = '';
+    service
+      .solicitar({
+        medicamento_id: 'med-1',
+        quantidade_solicitada: 10,
+        justificativa: 'Reposição',
+      })
+      .subscribe({ error: (err: Error) => (solicitarErr = err.message) });
+    expect(solicitarErr).toBe('Usuário não autenticado.');
+
+    let updateErr = '';
+    service
+      .atualizarStatus(basePedido, 'CANCELADO')
+      .subscribe({ error: (err: Error) => (updateErr = err.message) });
+    expect(updateErr).toBe('Usuário não autenticado.');
+  });
+
+  it('creates pedidos assigning medico_solicitante_id for MEDICO and gerente_responsavel_id for GERENTE_ESTOQUE', () => {
+    userSignal.set(mockMedico);
+    service
+      .solicitar({
+        medicamento_id: ' med-1 ',
+        quantidade_solicitada: 25,
+        justificativa: '  Necessário para plantão  ',
+      })
+      .subscribe();
+
+    const medicoReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque` && r.method === 'POST',
+    );
+    expect(medicoReq.request.body).toEqual({
+      medicamento_id: 'med-1',
+      quantidade_solicitada: 25,
+      status: 'PENDENTE',
+      medico_solicitante_id: mockMedico.id,
+      gerente_responsavel_id: null,
+      justificativa: 'Necessário para plantão',
+    });
+    medicoReq.flush([{ ...basePedido, id: 'ped-med', status: 'PENDENTE' }]);
+    expect(service.pedidos()[0]?.id).toBe('ped-med');
+
+    userSignal.set(mockGerente);
+    service
+      .solicitar({
+        medicamento_id: 'med-2',
+        quantidade_solicitada: 50,
+        justificativa: '   ',
+      })
+      .subscribe();
+
+    const gerenteReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque` && r.method === 'POST',
+    );
+    expect(gerenteReq.request.body).toEqual({
+      medicamento_id: 'med-2',
+      quantidade_solicitada: 50,
+      status: 'PENDENTE',
+      medico_solicitante_id: null,
+      gerente_responsavel_id: mockGerente.id,
+      justificativa: null,
+    });
+    gerenteReq.flush([{ ...basePedido, id: 'ped-ger', status: 'PENDENTE' }]);
+    expect(service.pedidos()[0]?.id).toBe('ped-ger');
+  });
+
+  it('calls atomic receber_pedido_estoque RPC, reloads auditoria when populated, and prevents duplicate receipt', () => {
+    auditoriaMovsSignal.set([{ id: 'mov-1' }]);
     service.atualizarStatus(basePedido, 'RECEBIDO').subscribe();
 
     const rpcReq = httpMock.expectOne(
@@ -93,6 +195,7 @@ describe('PedidosEstoqueService', () => {
     rpcReq.flush({ ...basePedido, status: 'RECEBIDO' });
 
     expect(medicamentosMock.loadMedicamentos).toHaveBeenCalledTimes(1);
+    expect(auditoriaMock.loadMovimentacoes).toHaveBeenCalledTimes(1);
 
     let duplicateError = '';
     service
@@ -100,5 +203,30 @@ describe('PedidosEstoqueService', () => {
       .subscribe({ error: (err: Error) => (duplicateError = err.message) });
 
     expect(duplicateError).toContain('não pode mais ser recebido');
+  });
+
+  it('updates pedido status to APROVADO and CANCELADO via PATCH', () => {
+    const pendente: PedidoEstoque = { ...basePedido, status: 'PENDENTE' };
+    service.loadPedidos().subscribe();
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque`)
+      .flush([pendente]);
+
+    service.atualizarStatus(pendente, 'APROVADO').subscribe();
+    const approveReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque` && r.method === 'PATCH',
+    );
+    expect(approveReq.request.body.status).toBe('APROVADO');
+    expect(approveReq.request.body.gerente_responsavel_id).toBe(mockGerente.id);
+    approveReq.flush([{ ...pendente, status: 'APROVADO' }]);
+    expect(service.pedidos()[0]?.status).toBe('APROVADO');
+
+    service.atualizarStatus({ ...pendente, status: 'APROVADO' }, 'CANCELADO').subscribe();
+    const cancelReq = httpMock.expectOne(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/pedidos_estoque` && r.method === 'PATCH',
+    );
+    expect(cancelReq.request.body.status).toBe('CANCELADO');
+    cancelReq.flush([{ ...pendente, status: 'CANCELADO' }]);
+    expect(service.pedidos()[0]?.status).toBe('CANCELADO');
   });
 });
