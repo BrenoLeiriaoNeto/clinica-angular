@@ -1,0 +1,229 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [header]="dialogHeader()"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '36rem', maxWidth: '94vw' }"
+>
+  @if (submitError()) {
+    <div
+      role="alert"
+      aria-live="assertive"
+      class="mb-md"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ submitError()! }}
+      </p-message>
+    </div>
+  }
+
+  <form
+    class="dialog-form"
+    (submit)="onSubmit($event)"
+    novalidate
+  >
+    <div class="dialog-form__field">
+      <label for="pac-nome">Nome Completo</label>
+      <input
+        pInputText
+        id="pac-nome"
+        type="text"
+        [formField]="pacienteForm.nome_completo"
+        placeholder="Ex: Mariana Oliveira Santos"
+        [attr.aria-invalid]="
+          pacienteForm.nome_completo().touched() && pacienteForm.nome_completo().invalid()
+            ? 'true'
+            : null
+        "
+        [attr.aria-describedby]="
+          pacienteForm.nome_completo().touched() && pacienteForm.nome_completo().invalid()
+            ? 'pac-nome-err'
+            : null
+        "
+      />
+      @if (pacienteForm.nome_completo().touched() && pacienteForm.nome_completo().invalid()) {
+        <span
+          id="pac-nome-err"
+          class="dialog-form__error"
+        >
+          {{ pacienteForm.nome_completo().errors()[0]?.message }}
+        </span>
+      }
+    </div>
+
+    <div class="dialog-form__field">
+      <label for="pac-email">E-mail de Acesso</label>
+      <input
+        pInputText
+        id="pac-email"
+        type="email"
+        [formField]="pacienteForm.email"
+        placeholder="ex: mariana.santos@email.com"
+        [attr.aria-invalid]="
+          pacienteForm.email().touched() && pacienteForm.email().invalid() ? 'true' : null
+        "
+        [attr.aria-describedby]="
+          pacienteForm.email().touched() && pacienteForm.email().invalid() ? 'pac-email-err' : null
+        "
+      />
+      @if (isEditMode()) {
+        <span class="dialog-form__hint">
+          O e-mail de login é vinculado à autenticação e não pode ser alterado nesta tela.
+        </span>
+      } @else if (pacienteForm.email().touched() && pacienteForm.email().invalid()) {
+        <span
+          id="pac-email-err"
+          class="dialog-form__error"
+        >
+          {{ pacienteForm.email().errors()[0]?.message }}
+        </span>
+      }
+    </div>
+
+    <div class="dialog-form__row">
+      <div class="dialog-form__field">
+        <label for="pac-cpf">CPF</label>
+        <input
+          pInputText
+          id="pac-cpf"
+          type="text"
+          inputmode="numeric"
+          [formField]="pacienteForm.documento"
+          (blur)="onFormatCpf()"
+          placeholder="000.000.000-00"
+          [attr.aria-invalid]="
+            pacienteForm.documento().touched() && pacienteForm.documento().invalid() ? 'true' : null
+          "
+          [attr.aria-describedby]="
+            pacienteForm.documento().touched() && pacienteForm.documento().invalid()
+              ? 'pac-cpf-err'
+              : null
+          "
+        />
+        @if (pacienteForm.documento().touched() && pacienteForm.documento().invalid()) {
+          <span
+            id="pac-cpf-err"
+            class="dialog-form__error"
+          >
+            {{ pacienteForm.documento().errors()[0]?.message }}
+          </span>
+        }
+      </div>
+
+      <div class="dialog-form__field">
+        <label for="pac-nasc">Data de Nascimento</label>
+        <input
+          pInputText
+          id="pac-nasc"
+          type="date"
+          min="1900-01-01"
+          [max]="todayIso"
+          [formField]="pacienteForm.data_nascimento"
+          [attr.aria-invalid]="
+            pacienteForm.data_nascimento().touched() && pacienteForm.data_nascimento().invalid()
+              ? 'true'
+              : null
+          "
+          [attr.aria-describedby]="
+            pacienteForm.data_nascimento().touched() && pacienteForm.data_nascimento().invalid()
+              ? 'pac-nasc-err'
+              : null
+          "
+        />
+        @if (pacienteForm.data_nascimento().touched() && pacienteForm.data_nascimento().invalid()) {
+          <span
+            id="pac-nasc-err"
+            class="dialog-form__error"
+          >
+            {{ pacienteForm.data_nascimento().errors()[0]?.message }}
+          </span>
+        }
+      </div>
+    </div>
+
+    <div class="dialog-form__row">
+      <div class="dialog-form__field">
+        <label for="pac-tel">Telefone / WhatsApp</label>
+        <input
+          pInputText
+          id="pac-tel"
+          type="tel"
+          [formField]="pacienteForm.telefone"
+          (blur)="onFormatTelefone()"
+          placeholder="(11) 99999-9999"
+          [attr.aria-invalid]="
+            pacienteForm.telefone().touched() && pacienteForm.telefone().invalid() ? 'true' : null
+          "
+          [attr.aria-describedby]="
+            pacienteForm.telefone().touched() && pacienteForm.telefone().invalid()
+              ? 'pac-tel-err'
+              : null
+          "
+        />
+        @if (pacienteForm.telefone().touched() && pacienteForm.telefone().invalid()) {
+          <span
+            id="pac-tel-err"
+            class="dialog-form__error"
+          >
+            {{ pacienteForm.telefone().errors()[0]?.message }}
+          </span>
+        }
+      </div>
+
+      @if (!isEditMode()) {
+        <div class="dialog-form__field">
+          <label for="pac-senha">Senha Inicial (Portal)</label>
+          <input
+            pInputText
+            id="pac-senha"
+            type="text"
+            [formField]="pacienteForm.senha_inicial"
+            placeholder="Mínimo 6 caracteres"
+            [attr.aria-invalid]="
+              pacienteForm.senha_inicial().touched() && pacienteForm.senha_inicial().invalid()
+                ? 'true'
+                : null
+            "
+            [attr.aria-describedby]="
+              pacienteForm.senha_inicial().touched() && pacienteForm.senha_inicial().invalid()
+                ? 'pac-senha-err'
+                : null
+            "
+          />
+          @if (pacienteForm.senha_inicial().touched() && pacienteForm.senha_inicial().invalid()) {
+            <span
+              id="pac-senha-err"
+              class="dialog-form__error"
+            >
+              {{ pacienteForm.senha_inicial().errors()[0]?.message }}
+            </span>
+          } @else {
+            <span class="dialog-form__hint">Usada pelo paciente no primeiro login.</span>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="dialog-form__actions">
+      <p-button
+        type="button"
+        label="Cancelar"
+        severity="secondary"
+        [text]="true"
+        [disabled]="isSubmitting()"
+        (onClick)="onClose()"
+      />
+      <p-button
+        type="submit"
+        [label]="isEditMode() ? 'Salvar Alterações' : 'Cadastrar Paciente'"
+        icon="pi pi-check"
+        [loading]="isSubmitting()"
+        [disabled]="pacienteForm().invalid() || isSubmitting()"
+      />
+    </div>
+  </form>
+</p-dialog>
