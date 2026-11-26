@@ -82,7 +82,8 @@ CREATE TABLE IF NOT EXISTS public.perfis (
   telefone TEXT,
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  data_nascimento DATE
   );
 
 -- 3.2 Medicamentos & Controle de Estoque
@@ -213,6 +214,10 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.role IS DISTINCT FROM OLD.role AND current_user NOT IN ('postgres', 'service_role') THEN
     RAISE EXCEPTION 'Alteração de papel (role) não é permitida pela API cliente.';
+END IF;
+  IF NEW.data_nascimento IS NOT NULL
+    AND (NEW.data_nascimento > CURRENT_DATE OR NEW.data_nascimento < DATE '1900-01-01') THEN
+    RAISE EXCEPTION 'Data de nascimento inválida.';
 END IF;
   NEW.atualizado_em := NOW();
 RETURN NEW;
@@ -461,6 +466,111 @@ RETURN NEW;
 END;
 $$;
 
+-- 4.9 RPC Atômica: Cadastro de Paciente pela Recepção (auth.users + auth.identities + public.perfis)
+CREATE OR REPLACE FUNCTION public.cadastrar_paciente(
+  p_nome_completo TEXT,
+  p_email TEXT,
+  p_documento TEXT DEFAULT NULL,
+  p_data_nascimento DATE DEFAULT NULL,
+  p_telefone TEXT DEFAULT NULL,
+  p_senha_inicial TEXT DEFAULT 'Clinica@2026'
+)
+RETURNS public.perfis
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+  v_user_id UUID := gen_random_uuid();
+  v_email TEXT := LOWER(TRIM(COALESCE(p_email, '')));
+  v_nome TEXT := TRIM(COALESCE(p_nome_completo, ''));
+  v_documento TEXT := NULLIF(TRIM(COALESCE(p_documento, '')), '');
+  v_telefone TEXT := NULLIF(TRIM(COALESCE(p_telefone, '')), '');
+  v_senha TEXT := COALESCE(NULLIF(TRIM(COALESCE(p_senha_inicial, '')), ''), 'Clinica@2026');
+  v_perfil public.perfis;
+BEGIN
+  IF auth.uid() IS NULL OR public.current_app_role() <> 'RECEPCIONISTA' THEN
+    RAISE EXCEPTION 'Acesso negado: apenas a Recepção pode cadastrar pacientes.';
+  END IF;
+
+  IF LENGTH(v_nome) < 3 THEN
+    RAISE EXCEPTION 'Informe o nome completo do paciente (mínimo 3 caracteres).';
+  END IF;
+
+  IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
+    RAISE EXCEPTION 'Informe um endereço de e-mail válido.';
+  END IF;
+
+  IF p_data_nascimento IS NOT NULL
+     AND (p_data_nascimento > CURRENT_DATE OR p_data_nascimento < DATE '1900-01-01') THEN
+    RAISE EXCEPTION 'Informe uma data de nascimento válida (não pode ser futura).';
+  END IF;
+
+  IF LENGTH(v_senha) < 6 THEN
+    RAISE EXCEPTION 'A senha inicial deve ter no mínimo 6 caracteres.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM auth.users WHERE LOWER(email) = v_email)
+     OR EXISTS (SELECT 1 FROM public.perfis WHERE LOWER(email) = v_email) THEN
+    RAISE EXCEPTION 'Já existe um cadastro registrado com este e-mail.';
+  END IF;
+
+  INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at, confirmation_token, recovery_token,
+    email_change_token_new, email_change
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    v_user_id,
+    'authenticated',
+    'authenticated',
+    v_email,
+    crypt(v_senha, gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object(
+      'full_name', v_nome,
+      'role', 'PACIENTE',
+      'document', COALESCE(v_documento, '')
+    ),
+    NOW(), NOW(), '', '', '', ''
+  );
+
+  INSERT INTO auth.identities (
+    id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+  ) VALUES (
+    v_user_id,
+    v_user_id,
+    jsonb_build_object('sub', v_user_id::text, 'email', v_email),
+    'email',
+    v_user_id::text,
+    NOW(), NOW(), NOW()
+  );
+
+  INSERT INTO public.perfis (
+    id, email, nome_completo, role, documento, data_nascimento, telefone, ativo
+  ) VALUES (
+    v_user_id,
+    v_email,
+    v_nome,
+    'PACIENTE',
+    v_documento,
+    p_data_nascimento,
+    v_telefone,
+    TRUE
+  )
+  RETURNING * INTO v_perfil;
+
+  RETURN v_perfil;
+END;
+$$;
+
+UPDATE public.perfis
+SET data_nascimento = DATE '1994-05-18'
+WHERE id = '44444444-4444-4444-4444-444444444444'
+  AND data_nascimento IS NULL;
+
 DROP TRIGGER IF EXISTS trg_medicamentos_auditar_saldo_inicial ON public.medicamentos;
 CREATE TRIGGER trg_medicamentos_auditar_saldo_inicial
   AFTER INSERT ON public.medicamentos
@@ -481,7 +591,6 @@ ALTER TABLE public.receituarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.receituario_itens ENABLE ROW LEVEL SECURITY;
 
 -- PERFIS
--- PERFIS
 DROP POLICY IF EXISTS "perfis_leitura_autenticada" ON public.perfis;
 DROP POLICY IF EXISTS "perfis_gestao_recepcao" ON public.perfis;
 DROP POLICY IF EXISTS "perfis_leitura_restrita" ON public.perfis;
@@ -495,10 +604,17 @@ CREATE POLICY "perfis_leitura_restrita" ON public.perfis
                                    OR public.current_app_role() IN ('RECEPCIONISTA', 'MEDICO', 'GERENTE_ESTOQUE')
                                    );
 
+DROP POLICY IF EXISTS "perfis_update_restrito" ON public.perfis;
 CREATE POLICY "perfis_update_restrito" ON public.perfis
   FOR UPDATE TO authenticated
-               USING (public.current_app_role() = 'RECEPCIONISTA' OR id = auth.uid())
-      WITH CHECK (public.current_app_role() = 'RECEPCIONISTA' OR id = auth.uid());
+  USING (
+    id = auth.uid()
+    OR (public.current_app_role() = 'RECEPCIONISTA' AND role = 'PACIENTE')
+  )
+  WITH CHECK (
+    id = auth.uid()
+    OR (public.current_app_role() = 'RECEPCIONISTA' AND role = 'PACIENTE')
+  );
 
 -- MEDICAMENTOS
 DROP POLICY IF EXISTS "medicamentos_leitura_geral" ON public.medicamentos;
