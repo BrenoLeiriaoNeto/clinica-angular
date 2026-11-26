@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { appConfig } from '../../../../app.config';
 import { Observable, of, throwError } from 'rxjs';
+import { ThemeService } from '../../../../core/theme/theme.service';
 import { Login } from './login';
 import { UserProfile } from '../../../../core/models/auth.model';
 
@@ -118,5 +119,27 @@ describe('Login', () => {
 
     expect(authServiceMock.login).toHaveBeenCalledWith('medico@medicore.com', 'Clinica@2026');
     expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('marks fields as touched and skips login call when submitting an invalid form', () => {
+    const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+
+    expect(authServiceMock.login).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#email-error')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#password-error')).toBeTruthy();
+  });
+
+  it('delegates theme toggle button click to ThemeService.toggleFromEvent', () => {
+    const themeService = TestBed.inject(ThemeService);
+    const spy = vi.spyOn(themeService, 'toggleFromEvent');
+
+    const toggleBtn = fixture.nativeElement.querySelector(
+      '.login-theme-toggle button',
+    ) as HTMLButtonElement;
+    toggleBtn.click();
+
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

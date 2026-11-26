@@ -21,13 +21,31 @@ describe('BreadcrumbService', () => {
         provideRouter([
           {
             path: 'estoque',
-            data: { title: 'Controle de Estoque' },
-            component: DummyPage,
+            data: { breadcrumb: 'Estoque', title: 'Controle de Estoque' },
+            children: [
+              { path: '', component: DummyPage },
+              {
+                path: ':id',
+                data: { breadcrumb: 'Detalhes do Medicamento' },
+                component: DummyPage,
+              },
+            ],
           },
           {
             path: 'auditoria-estoque',
             data: { title: 'Auditoria de Movimentações' },
             component: DummyPage,
+          },
+          {
+            path: 'duplicado',
+            data: { breadcrumb: 'Mesmo' },
+            children: [
+              {
+                path: 'filho',
+                data: { breadcrumb: 'Mesmo' },
+                component: DummyPage,
+              },
+            ],
           },
         ]),
         { provide: AuthService, useValue: authServiceMock },
@@ -38,12 +56,22 @@ describe('BreadcrumbService', () => {
     service = TestBed.inject(BreadcrumbService);
   });
 
-  it('builds breadcrumb trail from active route title and user home route', async () => {
+  it('builds breadcrumb trail preferring data.breadcrumb over data.title', async () => {
     await router.navigateByUrl('/estoque');
 
     expect(service.items()).toEqual([
       { label: 'Início', route: '/dashboard', isLast: false },
-      { label: 'Controle de Estoque', route: '/estoque', isLast: true },
+      { label: 'Estoque', route: '/estoque', isLast: true },
+    ]);
+  });
+
+  it('builds nested multi-level breadcrumb trails for child routes', async () => {
+    await router.navigateByUrl('/estoque/med-1');
+
+    expect(service.items()).toEqual([
+      { label: 'Início', route: '/dashboard', isLast: false },
+      { label: 'Estoque', route: '/estoque', isLast: false },
+      { label: 'Detalhes do Medicamento', route: '/estoque/med-1', isLast: true },
     ]);
   });
 
@@ -53,6 +81,15 @@ describe('BreadcrumbService', () => {
     expect(service.items()).toEqual([
       { label: 'Início', route: '/dashboard', isLast: false },
       { label: 'Auditoria de Movimentações', route: '/auditoria-estoque', isLast: true },
+    ]);
+  });
+
+  it('deduplicates consecutive breadcrumb labels across nested routes', async () => {
+    await router.navigateByUrl('/duplicado/filho');
+
+    expect(service.items()).toEqual([
+      { label: 'Início', route: '/dashboard', isLast: false },
+      { label: 'Mesmo', route: '/duplicado', isLast: true },
     ]);
   });
 });

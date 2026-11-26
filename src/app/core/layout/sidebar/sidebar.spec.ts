@@ -71,4 +71,40 @@ describe('Sidebar', () => {
     expect(authServiceMock.logout).toHaveBeenCalledTimes(1);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
   });
+
+  it('renders correct links for GERENTE_ESTOQUE, RECEPCIONISTA, and empty list when unauthenticated', () => {
+    currentRoleSignal.set('GERENTE_ESTOQUE');
+    fixture.detectChanges();
+    let links = Array.from(
+      fixture.nativeElement.querySelectorAll('.sidebar__link') as NodeListOf<HTMLAnchorElement>,
+    ).map((el) => el.textContent?.trim());
+    expect(links).toEqual(['Estoque', 'Pedidos de Compra', 'Auditoria de Estoque']);
+
+    currentRoleSignal.set('RECEPCIONISTA');
+    fixture.detectChanges();
+    links = Array.from(
+      fixture.nativeElement.querySelectorAll('.sidebar__link') as NodeListOf<HTMLAnchorElement>,
+    ).map((el) => el.textContent?.trim());
+    expect(links).toEqual(['Dashboard', 'Agenda Médica', 'Pacientes']);
+
+    currentRoleSignal.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.sidebar__link').length).toBe(0);
+  });
+
+  it('emits closeMobile on navigation click and focuses drawer target via focusDrawer', () => {
+    const closeSpy = vi.fn();
+    fixture.componentInstance.closeMobile.subscribe(closeSpy);
+
+    const firstLink = fixture.nativeElement.querySelector('.sidebar__link') as HTMLAnchorElement;
+    firstLink.click();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+
+    const closeBtn = fixture.nativeElement.querySelector(
+      'button.sidebar__close-btn, .sidebar__close-btn',
+    ) as HTMLElement;
+    const focusSpy = vi.spyOn(closeBtn, 'focus');
+    fixture.componentInstance.focusDrawer();
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+  });
 });

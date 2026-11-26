@@ -10,13 +10,15 @@ import { Topbar } from './topbar';
 describe('Topbar', () => {
   let fixture: ComponentFixture<Topbar>;
 
+  const currentUserSignal = signal<UserProfile | null>({
+    id: '22222222-2222-2222-2222-222222222222',
+    email: 'medico@medicore.com',
+    fullName: 'Dr. Henrique Vasconcelos',
+    role: 'MEDICO',
+  });
+
   const authServiceMock = {
-    currentUser: signal<UserProfile | null>({
-      id: '22222222-2222-2222-2222-222222222222',
-      email: 'medico@medicore.com',
-      fullName: 'Dr. Henrique Vasconcelos',
-      role: 'MEDICO',
-    }).asReadonly(),
+    currentUser: currentUserSignal.asReadonly(),
   };
 
   const themeServiceMock = {
@@ -32,6 +34,12 @@ describe('Topbar', () => {
   };
 
   beforeEach(async () => {
+    currentUserSignal.set({
+      id: '22222222-2222-2222-2222-222222222222',
+      email: 'medico@medicore.com',
+      fullName: 'Dr. Henrique Vasconcelos',
+      role: 'MEDICO',
+    });
     themeServiceMock.toggleTheme.mockClear();
 
     await TestBed.configureTestingModule({
@@ -62,12 +70,37 @@ describe('Topbar', () => {
     expect(fixture.nativeElement.textContent).toContain('medico@medicore.com');
   });
 
-  it('delegates theme switching to ThemeService', () => {
+  it('delegates theme switching to ThemeService with mouse coordinates when present', () => {
     const themeButton = fixture.nativeElement.querySelector(
       '.topbar__pill--actions button',
     ) as HTMLButtonElement;
     themeButton.click();
 
     expect(themeServiceMock.toggleTheme).toHaveBeenCalledTimes(1);
+
+    themeButton.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 200, clientY: 50 }));
+    expect(themeServiceMock.toggleTheme).toHaveBeenLastCalledWith({ x: 200, y: 50 });
+  });
+
+  it('emits toggleMobileMenu when clicking menu button and focuses trigger via focusMenuTrigger', () => {
+    const toggleSpy = vi.fn();
+    fixture.componentInstance.toggleMobileMenu.subscribe(toggleSpy);
+
+    const menuBtn = fixture.nativeElement.querySelector(
+      'button.topbar__menu-btn, .topbar__menu-btn button',
+    ) as HTMLButtonElement;
+    menuBtn.click();
+    expect(toggleSpy).toHaveBeenCalledTimes(1);
+
+    const focusSpy = vi.spyOn(menuBtn, 'focus');
+    fixture.componentInstance.focusMenuTrigger();
+    expect(focusSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides user email and avatar when currentUser is null', () => {
+    currentUserSignal.set(null);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.topbar__email')).toBeNull();
   });
 });

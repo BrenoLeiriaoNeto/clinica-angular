@@ -1,0 +1,5 @@
+{
+  "terminal.integrated.env.linux": {
+    "PATH": "%{env:HOME}/.nvm/versions/node/v26.13.1/bin:${env:PATH}"
+  }
+}

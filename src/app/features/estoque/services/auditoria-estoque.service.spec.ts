@@ -51,4 +51,39 @@ describe('AuditoriaEstoqueService', () => {
     expect(service.movimentacoes().length).toBe(1);
     expect(service.movimentacoes()[0]?.quantidade_posterior).toBe(32);
   });
+
+  it('sets error state when HTTP request fails and resets loading', () => {
+    let failed = false;
+    service.loadMovimentacoes().subscribe({
+      error: () => {
+        failed = true;
+      },
+    });
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`)
+      .flush({}, { status: 500, statusText: 'Server Error' });
+
+    expect(failed).toBe(true);
+    expect(service.error()).toBe('Não foi possível carregar o histórico de auditoria.');
+    expect(service.isLoading()).toBe(false);
+  });
+
+  it('keeps isLoading true until all concurrent loads finish', () => {
+    service.loadMovimentacoes().subscribe();
+    service.loadMovimentacoes().subscribe();
+
+    expect(service.isLoading()).toBe(true);
+
+    const requests = httpMock.match(
+      (r) => r.url === `${environment.supabaseUrl}/rest/v1/estoque_movimentacoes`,
+    );
+    expect(requests.length).toBe(2);
+
+    requests[0]?.flush([]);
+    expect(service.isLoading()).toBe(true);
+
+    requests[1]?.flush([]);
+    expect(service.isLoading()).toBe(false);
+  });
 });
