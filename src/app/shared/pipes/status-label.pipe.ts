@@ -14,6 +14,13 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELADO: 'Cancelado',
   ATIVO: 'Ativo',
   INATIVO: 'Descontinuado',
+  CADASTRO_INATIVO: 'Inativo',
+  AGENDADO: 'Agendado',
+  CONFIRMADO: 'Confirmado',
+  EM_ATENDIMENTO: 'Em Atendimento',
+  CONCLUIDO: 'Concluído',
+  FALTA_COBRADA: 'Falta Cobrada',
+  REAGENDAMENTO_SOLICITADO: 'Reagendamento Solicitado',
 };
 
 const STATUS_SEVERITIES: Record<string, TagSeverity> = {
@@ -28,17 +35,24 @@ const STATUS_SEVERITIES: Record<string, TagSeverity> = {
   CANCELADO: 'secondary',
   ATIVO: 'success',
   INATIVO: 'secondary',
+  CADASTRO_INATIVO: 'secondary',
+  AGENDADO: 'info',
+  CONFIRMADO: 'success',
+  EM_ATENDIMENTO: 'warn',
+  CONCLUIDO: 'success',
+  FALTA_COBRADA: 'danger',
+  REAGENDAMENTO_SOLICITADO: 'warn',
 };
 
 export function getStatusSeverity(status: string): TagSeverity {
-  return STATUS_SEVERITIES[status] ?? 'secondary'
+  return STATUS_SEVERITIES[status] ?? 'secondary';
 }
 
 @Pipe({
   name: 'statusLabel',
 })
 export class StatusLabelPipe implements PipeTransform {
-  transform(value: string | null | undefined,): string {
+  transform(value: string | null | undefined): string {
     if (!value) return '-';
     return STATUS_LABELS[value] ?? value;
   }

@@ -1,0 +1,193 @@
+<section class="page-container">
+  <a
+    class="detail-back"
+    routerLink=".."
+  >
+    <i
+      class="pi pi-arrow-left"
+      aria-hidden="true"
+    ></i>
+    Voltar para Cadastro de Pacientes
+  </a>
+
+  @if (pacientesService.isLoading() && !paciente()) {
+    <div
+      class="surface-card state-box"
+      role="status"
+      aria-live="polite"
+    >
+      <i
+        class="pi pi-spin pi-spinner"
+        aria-hidden="true"
+      ></i>
+      <p>Carregando ficha do paciente...</p>
+    </div>
+  } @else if (paciente(); as pac) {
+    <app-page-header
+      [title]="pac.nome_completo"
+      [subtitle]="pac.email"
+    >
+      <p-button
+        type="button"
+        label="Editar Cadastro"
+        icon="pi pi-pencil"
+        (onClick)="formDialogVisible.set(true)"
+      />
+    </app-page-header>
+
+    <div class="kpi-grid">
+      <article class="kpi-card kpi-card--info">
+        <span class="kpi-card__label">Idade</span>
+        <strong class="kpi-card__value">
+          @if (idade(); as age) {
+            {{ age }} anos
+          } @else {
+            —
+          }
+        </strong>
+        <span class="kpi-card__hint">Nascimento: {{ dataNascimentoFormatada() }}</span>
+      </article>
+
+      <article class="kpi-card kpi-card--success">
+        <span class="kpi-card__label">Agendamentos</span>
+        <strong class="kpi-card__value">{{ agendamentos().length }}</strong>
+        <span class="kpi-card__hint">{{ totalConcluidas() }} consulta(s) concluída(s)</span>
+      </article>
+
+      <article class="kpi-card">
+        <span class="kpi-card__label">Situação Cadastral</span>
+        <div>
+          <app-status-badge [status]="pac.ativo ? 'ATIVO' : 'CADASTRO_INATIVO'" />
+        </div>
+        <span class="kpi-card__hint">Desde {{ pac.criado_em | date: 'dd/MM/yyyy' }}</span>
+      </article>
+    </div>
+
+    <div class="surface-card">
+      <div class="section-heading">
+        <h2>Dados Cadastrais</h2>
+      </div>
+      <dl class="detail-meta">
+        <div class="detail-meta__item">
+          <dt>Nome Completo</dt>
+          <dd>{{ pac.nome_completo }}</dd>
+        </div>
+        <div class="detail-meta__item">
+          <dt>E-mail de Acesso</dt>
+          <dd>{{ pac.email }}</dd>
+        </div>
+        <div class="detail-meta__item">
+          <dt>CPF</dt>
+          <dd class="data-table__code">{{ pac.documento || '—' }}</dd>
+        </div>
+        <div class="detail-meta__item">
+          <dt>Data de Nascimento</dt>
+          <dd>{{ dataNascimentoFormatada() }}</dd>
+        </div>
+        <div class="detail-meta__item">
+          <dt>Telefone / WhatsApp</dt>
+          <dd>{{ pac.telefone || '—' }}</dd>
+        </div>
+        <div class="detail-meta__item">
+          <dt>Última Atualização</dt>
+          <dd>{{ pac.atualizado_em | date: 'dd/MM/yyyy HH:mm' }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="surface-card">
+      <div class="section-heading">
+        <h2>Histórico de Agendamentos</h2>
+        <span>{{ agendamentos().length }} registro(s)</span>
+      </div>
+
+      @if (agendamentosError(); as errorMsg) {
+        <div
+          role="alert"
+          aria-live="assertive"
+        >
+          <p-message
+            severity="error"
+            styleClass="w-full"
+          >
+            {{ errorMsg }}
+          </p-message>
+        </div>
+      } @else if (isLoadingAgendamentos()) {
+        <div
+          class="state-box"
+          role="status"
+          aria-live="polite"
+        >
+          <i
+            class="pi pi-spin pi-spinner"
+            aria-hidden="true"
+          ></i>
+          <p>Carregando agendamentos do paciente...</p>
+        </div>
+      } @else if (agendamentos().length === 0) {
+        <div class="state-box">
+          <i
+            class="pi pi-calendar"
+            aria-hidden="true"
+          ></i>
+          <p>Nenhum agendamento registrado para este paciente até o momento.</p>
+        </div>
+      } @else {
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Data / Horário</th>
+                <th scope="col">Médico</th>
+                <th scope="col">Status</th>
+                <th scope="col">Observações</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ag of agendamentos(); track ag.id) {
+                <tr>
+                  <td class="data-table__num">
+                    <span class="data-table__primary">
+                      {{ ag.data_hora_inicio | date: 'dd/MM/yyyy' }}
+                    </span>
+                    <span class="data-table__secondary">
+                      {{ ag.data_hora_inicio | date: 'HH:mm' }} –
+                      {{ ag.data_hora_fim | date: 'HH:mm' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="data-table__primary">
+                      {{ ag.medico?.nome_completo ?? '—' }}
+                    </span>
+                    @if (ag.medico?.especialidade; as esp) {
+                      <span class="data-table__secondary">{{ esp }}</span>
+                    }
+                  </td>
+                  <td>
+                    <app-status-badge [status]="ag.status" />
+                  </td>
+                  <td>{{ ag.observacoes || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <app-paciente-form-dialog
+      [(visible)]="formDialogVisible"
+      [paciente]="pac"
+    />
+  } @else {
+    <div role="alert">
+      <p-message
+        severity="warn"
+        styleClass="w-full"
+      >
+        Paciente não encontrado. Verifique o identificador informado ou retorne à listagem.
+      </p-message>
+    </div>
+  }
+</section>

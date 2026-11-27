@@ -42,10 +42,12 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: {
           roles: ['RECEPCIONISTA'],
+          breadcrumb: 'Pacientes',
           title: 'Cadastro de Pacientes',
           description: 'Gerenciamento de perfis, documentos e histórico cadastral.',
         },
-        loadComponent: loadPlaceholder,
+        loadChildren: () =>
+          import('./features/pacientes/pacientes.routes').then((m) => m.pacientesRoutes),
       },
       {
         path: 'receituarios',
