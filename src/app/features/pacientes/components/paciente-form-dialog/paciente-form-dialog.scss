@@ -1,0 +1,49 @@
+@use "variables" as *;
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-md;
+  padding-top: $space-xs;
+
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: $space-md;
+
+    @media (max-width: 540px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--app-text-color);
+    }
+  }
+
+  &__error {
+    font-size: 0.78rem;
+    color: var(--app-status-danger);
+    font-weight: 500;
+  }
+
+  &__hint {
+    font-size: 0.78rem;
+    color: var(--app-text-muted);
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $space-sm;
+    padding-top: $space-sm;
+    border-top: 1px solid var(--app-surface-border);
+  }
+}
