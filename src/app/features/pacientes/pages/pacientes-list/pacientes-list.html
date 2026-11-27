@@ -1,0 +1,236 @@
+<section class="page-container">
+  <app-page-header
+    title="Cadastro de Pacientes"
+    subtitle="Gerenciamento cadastral de pacientes, documentos e acesso ao portal"
+  >
+    <p-button
+      type="button"
+      label="Novo Paciente"
+      icon="pi pi-user-plus"
+      (onClick)="openCreateDialog()"
+    />
+  </app-page-header>
+
+  <div
+    class="kpi-grid"
+    aria-label="Indicadores do cadastro de pacientes"
+  >
+    <article class="kpi-card kpi-card--info">
+      <span class="kpi-card__label">Pacientes Ativos</span>
+      <strong class="kpi-card__value">{{ pacientesService.pacientesAtivos().length }}</strong>
+      <span class="kpi-card__hint">
+        {{ pacientesService.pacientesInativos().length }} inativo(s)
+      </span>
+    </article>
+
+    <article class="kpi-card kpi-card--success">
+      <span class="kpi-card__label">Novos neste Mês</span>
+      <strong class="kpi-card__value">{{ pacientesService.novosNoMes() }}</strong>
+      <span class="kpi-card__hint">Cadastros realizados no mês atual</span>
+    </article>
+
+    <article class="kpi-card">
+      <span class="kpi-card__label">Total na Base</span>
+      <strong class="kpi-card__value">{{ pacientesService.pacientes().length }}</strong>
+      <span class="kpi-card__hint">Ativos e inativos preservados para histórico</span>
+    </article>
+  </div>
+
+  @if (pacientesService.error(); as errorMsg) {
+    <div
+      role="alert"
+      aria-live="assertive"
+    >
+      <p-message
+        severity="error"
+        styleClass="w-full"
+      >
+        {{ errorMsg }}
+      </p-message>
+    </div>
+  }
+
+  <div class="surface-card">
+    <div
+      class="filter-bar"
+      role="search"
+      aria-label="Filtros do cadastro de pacientes"
+    >
+      <div class="filter-bar__search">
+        <label
+          for="pacientes-search"
+          class="sr-only"
+        >
+          Buscar paciente
+        </label>
+        <input
+          pInputText
+          id="pacientes-search"
+          type="search"
+          [value]="searchTerm()"
+          (input)="onSearchInput($event)"
+          placeholder="Buscar por nome, e-mail, CPF ou telefone..."
+        />
+      </div>
+
+      <label class="filter-bar__checkbox">
+        <input
+          type="checkbox"
+          [checked]="showInactive()"
+          (change)="onShowInactiveChange($event)"
+        />
+        Exibir inativos
+      </label>
+
+      <span
+        class="filter-bar__meta"
+        role="status"
+        aria-live="polite"
+      >
+        {{ filteredPacientes().length }} paciente(s) exibido(s)
+      </span>
+    </div>
+
+    @if (pacientesService.isLoading()) {
+      <div
+        class="state-box"
+        role="status"
+        aria-live="polite"
+      >
+        <i
+          class="pi pi-spin pi-spinner"
+          aria-hidden="true"
+        ></i>
+        <p>Carregando cadastro de pacientes...</p>
+      </div>
+    } @else if (filteredPacientes().length === 0) {
+      <div class="state-box">
+        <i
+          class="pi pi-users"
+          aria-hidden="true"
+        ></i>
+        <p>Nenhum paciente encontrado para os filtros aplicados.</p>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Paciente</th>
+              <th scope="col">CPF</th>
+              <th scope="col">Nascimento</th>
+              <th scope="col">Telefone</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Ações</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pac of filteredPacientes(); track pac.id) {
+              <tr [class.data-table__row--inactive]="!pac.ativo">
+                <td>
+                  <a
+                    class="data-table__link"
+                    [routerLink]="[pac.id]"
+                  >
+                    <span class="data-table__primary">{{ pac.nome_completo }}</span>
+                    <span class="data-table__secondary">{{ pac.email }}</span>
+                  </a>
+                </td>
+                <td>
+                  <span class="data-table__code">{{ pac.documento || '—' }}</span>
+                </td>
+                <td class="data-table__num">
+                  <span class="data-table__primary">
+                    {{ formatBirthDate(pac.data_nascimento) }}
+                  </span>
+                  @if (formatAge(pac.data_nascimento); as ageLabel) {
+                    <span class="data-table__secondary">{{ ageLabel }}</span>
+                  }
+                </td>
+                <td class="data-table__num">{{ pac.telefone || '—' }}</td>
+                <td>
+                  <app-status-badge [status]="pac.ativo ? 'ATIVO' : 'CADASTRO_INATIVO'" />
+                </td>
+                <td>
+                  <div class="data-table__actions">
+                    <p-button
+                      type="button"
+                      icon="pi pi-eye"
+                      severity="secondary"
+                      [text]="true"
+                      size="small"
+                      [routerLink]="[pac.id]"
+                      [ariaLabel]="'Ver ficha de ' + pac.nome_completo"
+                    />
+                    <p-button
+                      type="button"
+                      icon="pi pi-pencil"
+                      severity="secondary"
+                      [text]="true"
+                      size="small"
+                      [ariaLabel]="'Editar ' + pac.nome_completo"
+                      (onClick)="openEditDialog(pac)"
+                    />
+                    <p-button
+                      type="button"
+                      [icon]="pac.ativo ? 'pi pi-ban' : 'pi pi-refresh'"
+                      [severity]="pac.ativo ? 'danger' : 'success'"
+                      [text]="true"
+                      size="small"
+                      [ariaLabel]="(pac.ativo ? 'Inativar ' : 'Reativar ') + pac.nome_completo"
+                      (onClick)="requestToggleAtivo(pac)"
+                    />
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</section>
+
+<app-paciente-form-dialog
+  [(visible)]="formDialogVisible"
+  [paciente]="selectedPaciente()"
+/>
+
+<p-dialog
+  [visible]="pendingTogglePaciente() !== null"
+  (visibleChange)="!$event && cancelToggleAtivo()"
+  [header]="pendingTogglePaciente()?.ativo ? 'Inativar Paciente' : 'Reativar Paciente'"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '28rem', maxWidth: '94vw' }"
+>
+  @if (pendingTogglePaciente(); as pac) {
+    <div class="confirm-dialog">
+      <p>
+        Confirma {{ pac.ativo ? 'inativar' : 'reativar' }} o cadastro de
+        <strong>{{ pac.nome_completo }}</strong>
+        ?
+        @if (pac.ativo) {
+          O histórico de consultas e receituários será preservado na base.
+        }
+      </p>
+      <div class="confirm-dialog__actions">
+        <p-button
+          type="button"
+          label="Cancelar"
+          severity="secondary"
+          [text]="true"
+          [disabled]="pacientesService.isSubmitting()"
+          (onClick)="cancelToggleAtivo()"
+        />
+        <p-button
+          type="button"
+          [label]="pac.ativo ? 'Inativar' : 'Reativar'"
+          [severity]="pac.ativo ? 'danger' : 'success'"
+          [loading]="pacientesService.isSubmitting()"
+          (onClick)="confirmToggleAtivo()"
+        />
+      </div>
+    </div>
+  }
+</p-dialog>

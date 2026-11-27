@@ -1,6 +1,6 @@
 import { computed, inject, Service, signal } from '@angular/core';
 import { BaseApiService } from '../../../core/http/base-api.service';
-import { Paciente } from '../models/paciente.model';
+import { Paciente, PacienteAgendamentoResumo } from '../models/paciente.model';
 import { catchError, defer, finalize, Observable, tap, throwError } from 'rxjs';
 import { CreatePacienteDto, UpdatePacienteDto } from '../models/dtos/paciente.dto';
 import {
@@ -12,6 +12,7 @@ import {
   isValidEmail,
   isValidTelefone,
 } from '../utils/paciente-validators';
+import { PACIENTE_AGENDAMENTOS_SELECT } from '../../../../database/queries';
 
 @Service()
 export class PacientesService {
@@ -176,5 +177,13 @@ export class PacientesService {
         }),
         finalize(() => this._isSubmitting.set(false)),
       );
+  }
+
+  loadAgendamentosDoPaciente(pacienteId: string): Observable<PacienteAgendamentoResumo[]> {
+    return this.api.get<PacienteAgendamentoResumo[]>('agendamentos', {
+      select: PACIENTE_AGENDAMENTOS_SELECT,
+      paciente_id: `eq.${pacienteId}`,
+      order: 'data_hora_inicio.desc',
+    });
   }
 }
